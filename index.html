@@ -21,15 +21,28 @@ html,body{position:fixed;inset:0;width:100%}
 #bar{display:flex;align-items:center;gap:10px;padding:8px 14px;background:#1c1820;color:#f4e9dc;flex:0 0 auto;flex-wrap:wrap}
 #bar h1{font-size:18px;margin:0 6px 0 0;font-weight:800}
 #lvl{font-size:14px;opacity:.85}
-#count{margin-left:auto;font-size:14px;opacity:.9}
+#count{margin-left:auto;font-weight:700;font-size:14px;opacity:.9}
 button{font:inherit;cursor:pointer;border:0;border-radius:10px;padding:6px 12px;background:#f4e9dc;color:var(--ink);font-weight:700}
 button:hover{filter:brightness(1.06)}
 button.primary{background:var(--accent);color:#fff;padding:11px 26px;font-size:17px}
-#wrap{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
-#holder{position:relative}
-#cv{display:block;border-radius:14px;touch-action:none;user-select:none;-webkit-user-select:none}
+#wrap{flex:1;min-height:0;position:relative}
+#holder{position:absolute;inset:0;overflow:hidden}
+#cv{display:block;width:100%;height:100%;touch-action:none;user-select:none;-webkit-user-select:none}
 #toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:var(--paper);padding:8px 16px;border-radius:12px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.25);transition:opacity .4s;opacity:0;pointer-events:none;white-space:nowrap;font-size:15px}
-.overlay{position:absolute;inset:0;background:rgba(28,24,32,.72);display:flex;align-items:center;justify-content:center;border-radius:14px;z-index:5}
+.overlay{position:absolute;inset:0;background:rgba(28,24,32,.72);display:flex;align-items:center;justify-content:center;z-index:5}
+#zoomUI{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:6px;z-index:3}
+#zoomUI button{width:42px;height:42px;border-radius:12px;padding:0;font-size:20px;background:rgba(244,233,220,.88);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+#timer,#errs{display:none;padding:2px 8px;border-radius:8px;background:#3a3340;font-weight:700;font-size:14px;white-space:nowrap}
+#timer.low{background:#b23b3b;color:#fff;animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.55}}
+.set{text-align:left;display:grid;gap:14px;margin:6px 0 16px}
+.set .row{display:grid;gap:6px}
+.set .lab{font-weight:800;font-size:15px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{background:#efe3d3;font-weight:600;padding:7px 12px}
+.seg button.on{background:var(--accent);color:#fff}
+.set input[type=range]{width:100%;accent-color:var(--accent)}
+.set .note{font-size:13px;opacity:.75}
 .card{background:var(--paper);border-radius:18px;padding:26px 32px;max-width:min(560px,92%);max-height:92%;overflow:auto;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35)}
 .card .year{font-size:42px;font-weight:800;color:var(--accent);line-height:1}
 .card h2{margin:6px 0 10px;font-size:26px}
@@ -54,13 +67,14 @@ button.primary{background:var(--accent);color:#fff;padding:11px 26px;font-size:1
 <div id="app">
   <div id="bar">
     <h1>📦 Scatoloni</h1><span id="lvl"></span>
-    <span id="count"></span>
+    <span id="count"></span><span id="timer"></span><span id="errs"></span>
     <button id="hintB" title="Suggerimento">💡<span class="lbl"> Aiuto</span></button>
     <button id="roomsB" title="Stanze">🏠<span class="lbl"> Stanze</span></button>
-    <button id="restartB">↺</button>
-    <button id="soundB">🔊</button>
+    <button id="musicB" title="Musica">🎵</button>
+    <button id="setB" title="Impostazioni">⚙️</button>
+    <button id="restartB" title="Ricomincia la stanza">↺</button>
   </div>
-  <div id="wrap"><div id="holder"><canvas id="cv"></canvas><div id="toast"></div></div></div>
+  <div id="wrap"><div id="holder"><canvas id="cv"></canvas><div id="toast"></div><div id="zoomUI"><button id="zIn" title="Ingrandisci">＋</button><button id="zOut" title="Riduci">－</button><button id="zFit" title="Vista intera">⤢</button></div></div></div>
 </div>
 <script>
 "use strict";
@@ -229,11 +243,11 @@ const ROOMS=[
 ];
 
 // ================= Motore =================
-const CW=960,CH=640,U=44,ZU=40,WH=5;
+const U=44,ZU=40,WH=5;
 let N=8,ox=480,oy=234;
 const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),holder=document.getElementById("holder"),wrap=document.getElementById("wrap");
-let scale=1,dpr=Math.min(2,window.devicePixelRatio||1),dirty=true,now=0;
-let ri=0,room,R,items=[],cartons=[],drag=null,hover=null,hint=null,lastOrder=[],soundOn=true,actx=null,finished=false;
+let dpr=Math.min(2,window.devicePixelRatio||1),dirty=true,now=0;
+let ri=0,room,R,items=[],cartons=[],drag=null,hover=null,hint=null,lastOrder=[],finished=false,errors=0,timeLeft=0,timerOn=false,RULE={time:0,errs:0};
 
 function P(x,y,z){return[ox+(x-y)*U,oy+(x+y)*U/2-z*ZU]}
 function inv(sx,sy){const a=(sx-ox)/U,b=(sy-oy)/(U/2);return[(a+b)/2,(b-a)/2]}
@@ -241,13 +255,6 @@ function hexRgb(h){const n=parseInt(h.slice(1),16);return[n>>16&255,n>>8&255,n&2
 function shade(h,f){const c=hexRgb(h);const t=f<0?0:255,p=Math.abs(f);return`rgb(${c.map(v=>Math.round(v+(t-v)*p)).join(",")})`}
 function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
 function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
-
-function pop(f,type){
-  if(!soundOn)return;
-  try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const t=actx.currentTime,o=actx.createOscillator(),g=actx.createGain();
-    o.type=type||"sine";o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f*1.5,t+.07);
-    g.gain.setValueAtTime(.12,t);g.gain.exponentialRampToValueAtTime(.001,t+.15);o.connect(g).connect(actx.destination);o.start(t);o.stop(t+.16)}catch(e){}
-}
 
 // ---------- costruttore stanza ----------
 function builder(){
@@ -302,7 +309,8 @@ function builder(){
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function loadRoom(i,intro=true){
   ri=i;room=ROOMS[i];N=room.N;finished=false;drag=null;hover=null;hint=null;
-  oy=(CH-N*U-20+WH*ZU)/2;
+  oy=300;computeBase();cam={x:home.x,y:home.y,z:1};
+  RULE={time:SET.time,errs:SET.errs};errors=0;timeLeft=RULE.time*60;timerOn=false;placeStep=0;
   store("scatoloni3-cur",String(i));
   const mx=parseInt(store("scatoloni3-max")||"0",10)||0;if(i>mx)store("scatoloni3-max",String(i));
   R=builder();room.build(R);
@@ -318,7 +326,7 @@ function loadRoom(i,intro=true){
   updateCount();dirty=true;
   if(intro){
     const first=i===0||ROOMS[i-1].h!==room.h;
-    if(first)overlay(`<div class="year">${H.year}</div><h2>${H.name}</h2><p>${H.story}</p><p class="how">Tocca uno scatolone per tirare fuori un oggetto, poi trascinalo nel punto esatto in cui deve stare. Le sagome tratteggiate indicano i posti liberi.</p>`,[["Inizia","primary",()=>pop(600)]]);
+    if(first)overlay(`<div class="year">${H.year}</div><h2>${H.name}</h2><p>${H.story}</p><p class="how">Tocca uno scatolone per tirare fuori un oggetto, poi trascinalo nel punto esatto in cui deve stare. Le sagome tratteggiate indicano i posti liberi.</p>`,[["Inizia","primary",()=>{}]]);
     else showToast(room.name);
   }
 }
@@ -348,14 +356,14 @@ function openCarton(c){
   const[sx,sy]=freeSpot(c.x+c.w+.5,c.y+c.d+.5,it);
   it.state="loose";it.x=sx;it.y=sy;it.z=0;it.plane="top";
   it.anim={t0:now,dur:450,fx:c.x+c.w/2,fy:c.y+c.d/2,fz:c.h};
-  c.bump=now;pop(520);
+  c.bump=now;SFX.box();
   if(!c.queue.length)c.vanish=now+250;
   updateCount();dirty=true;
 }
 function updateCount(){
   const placed=items.filter(i=>i.state==="slot").length;
   const inBox=cartons.reduce((a,c)=>a+c.queue.length,0);
-  document.getElementById("count").textContent=(inBox?`📦 ${inBox} negli scatoloni · `:"")+`${placed}/${items.length} sistemati`;
+  document.getElementById("count").textContent=(inBox?`📦 ${inBox} · `:"")+`✅ ${placed}/${items.length}`;
 }
 function check(){
   updateCount();
@@ -364,7 +372,7 @@ function check(){
   const wrong=items.filter(i=>i.slot.tag!==i.tag);
   items.forEach(i=>i.bad=wrong.includes(i));
   if(!wrong.length){finished=true;setTimeout(win,600)}
-  else{showToast(wrong.length===1?"Un oggetto non è al suo posto":`${wrong.length} oggetti non sono al loro posto`);pop(220,"triangle")}
+  else{showToast(wrong.length===1?"Un oggetto non è al suo posto":`${wrong.length} oggetti non sono al loro posto`);SFX.wrong()}
   dirty=true;
 }
 
@@ -482,6 +490,7 @@ function drawItemAt(it,sx,sy,plane,sc,glow){
 function itemGlow(it){
   if(hint&&hint.it===it)return`rgba(255,200,60,${.7+.3*Math.sin(now/120)})`;
   if(it.bad)return"#ff3030";
+  if(it.flash&&now-it.flash<700)return"#ff3030";
   if(hover===it)return"rgba(255,255,255,.95)";
   return null;
 }
@@ -514,9 +523,10 @@ function topo(list){
   return out;
 }
 function draw(){
-  ctx.setTransform(scale*dpr,0,0,scale*dpr,0,0);
-  const g=ctx.createRadialGradient(CW/2,CH/2,80,CW/2,CH/2,620);g.addColorStop(0,"#4a4152");g.addColorStop(1,"#2a2430");
-  ctx.fillStyle=g;ctx.fillRect(0,0,CW,CH);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const g=ctx.createRadialGradient(VW/2,VH/2,60,VW/2,VH/2,Math.max(VW,VH)*.7);g.addColorStop(0,"#4a4152");g.addColorStop(1,"#2a2430");
+  ctx.fillStyle=g;ctx.fillRect(0,0,VW,VH);
+  const zz=Z();ctx.setTransform(dpr*zz,0,0,dpr*zz,dpr*(VW/2-cam.x*zz),dpr*(VH/2-cam.y*zz));
   drawShell();drawWallDecals();drawFloorDecals();
   cartons=cartons.filter(c=>!(c.vanish&&now>c.vanish+320));
   const list=[...R.boxes,...cartons];
@@ -533,11 +543,123 @@ function draw(){
   if(drag){ctx.save();ctx.shadowColor="rgba(0,0,0,.35)";ctx.shadowBlur=12;ctx.shadowOffsetY=10;
     drawItemAt(drag.it,drag.bx,drag.by,"top",1.15,null);ctx.restore()}
 }
-function animating(){return drag||hint||items.some(i=>i.anim||i.popT)||cartons.some(c=>c.vanish||(c.bump&&now-c.bump<240))}
-function frame(t){now=t;if(hint&&now-hint.t0>3000)hint=null;if(dirty||animating()){draw();dirty=false}requestAnimationFrame(frame)}
+function animating(){return drag||hint||pinch||items.some(i=>i.anim||i.popT||(i.flash&&now-i.flash<700))||cartons.some(c=>c.vanish||(c.bump&&now-c.bump<240))}
+function paused(){return document.hidden||!!holder.querySelector(".overlay")}
+let lastT=0,lastStat=0;
+function frame(t){
+  const dt=lastT?Math.min(.25,(t-lastT)/1000):0;lastT=t;now=t;
+  if(hint&&now-hint.t0>3000)hint=null;
+  if(RULE.time&&timerOn&&!finished&&!paused()){
+    const prev=Math.ceil(timeLeft);timeLeft-=dt;
+    if(timeLeft>0&&timeLeft<=10&&Math.ceil(timeLeft)<prev)SFX.tick();
+    if(timeLeft<=0){timeLeft=0;lose("time")}
+  }
+  if(t-lastStat>200){updateStatus();lastStat=t}
+  if(dirty||animating()){draw();dirty=false}
+  requestAnimationFrame(frame);
+}
+
+// ================= Audio =================
+const SET=Object.assign({music:true,sfx:true,vol:.6,time:0,errs:0},(()=>{try{return JSON.parse(store("scatoloni-set")||"{}")}catch(e){return{}}})());
+function saveSet(){store("scatoloni-set",JSON.stringify(SET))}
+const A={ctx:null};
+const mtof=m=>440*Math.pow(2,(m-69)/12);
+const PENTA=[65,67,69,72,74,77,79,81,84,86]; // Fa maggiore pentatonica
+function initAudio(){
+  if(A.ctx){if(A.ctx.state!=="running")A.ctx.resume();return}
+  try{
+    const c=A.ctx=new (window.AudioContext||window.webkitAudioContext)();
+    A.master=c.createGain();A.master.gain.value=.9;
+    const comp=c.createDynamicsCompressor();A.master.connect(comp);comp.connect(c.destination);
+    const len=Math.floor(c.sampleRate*3),ir=c.createBuffer(2,len,c.sampleRate);
+    for(let ch=0;ch<2;ch++){const d=ir.getChannelData(ch);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.6)}
+    A.rev=c.createConvolver();A.rev.buffer=ir;const rg=c.createGain();rg.gain.value=.5;A.rev.connect(rg);rg.connect(A.master);
+    A.sfx=c.createGain();A.sfx.gain.value=SET.sfx?.8:0;A.sfx.connect(A.master);
+    const sr=c.createGain();sr.gain.value=.3;A.sfx.connect(sr);sr.connect(A.rev);
+    A.mus=c.createGain();A.mus.gain.value=0;A.mus.connect(A.master);
+    const mr=c.createGain();mr.gain.value=.9;A.mus.connect(mr);mr.connect(A.rev);
+    A.dly=c.createDelay(2);A.dly.delayTime.value=.48;const fb=c.createGain();fb.gain.value=.3;const df=c.createBiquadFilter();df.type="lowpass";df.frequency.value=2200;
+    A.dly.connect(df);df.connect(fb);fb.connect(A.dly);df.connect(A.mus);
+    A.noise=c.createBuffer(1,c.sampleRate,c.sampleRate);const nd=A.noise.getChannelData(0);for(let i=0;i<nd.length;i++)nd[i]=Math.random()*2-1;
+    if(SET.music)musicOn();
+  }catch(e){A.ctx=null}
+}
+document.addEventListener("pointerdown",initAudio,{capture:true});
+document.addEventListener("visibilitychange",()=>{if(A.ctx){document.hidden?A.ctx.suspend():A.ctx.resume()}});
+function tone(f,t,o={}){
+  const{type="sine",a=.005,d=.4,v=.2,dest=A.sfx,f2=null,lp=null}=o;const c=A.ctx,os=c.createOscillator(),g=c.createGain();
+  os.type=type;os.frequency.setValueAtTime(f,t);if(f2)os.frequency.exponentialRampToValueAtTime(f2,t+d*.8);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+a);g.gain.exponentialRampToValueAtTime(.0001,t+a+d);
+  let n=os;if(lp){const fl=c.createBiquadFilter();fl.type="lowpass";fl.frequency.value=lp;os.connect(fl);n=fl}
+  n.connect(g);g.connect(dest);os.start(t);os.stop(t+a+d+.05);
+}
+function noise(t,o={}){
+  const{d=.2,v=.2,type="bandpass",f=1200,q=1,a=.01,dest=A.sfx}=o;const c=A.ctx,s=c.createBufferSource();s.buffer=A.noise;
+  const fl=c.createBiquadFilter();fl.type=type;fl.frequency.value=f;fl.Q.value=q;const g=c.createGain();
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+a);g.gain.exponentialRampToValueAtTime(.0001,t+a+d);
+  s.connect(fl);fl.connect(g);g.connect(dest);s.start(t,Math.random()*.5);s.stop(t+a+d+.05);
+}
+let placeStep=0;
+const SFX={
+  ok(){return!!(A.ctx&&SET.sfx)},
+  ui(){if(this.ok())tone(1300,A.ctx.currentTime,{d:.06,v:.04})},
+  pick(){if(!this.ok())return;const t=A.ctx.currentTime;tone(mtof(PENTA[3+Math.floor(Math.random()*3)]),t,{type:"triangle",d:.08,v:.06,lp:2400});noise(t,{d:.03,v:.04,f:3000,q:2})},
+  place(){if(!this.ok())return;const t=A.ctx.currentTime,m=PENTA[placeStep++%PENTA.length];
+    tone(mtof(m),t,{a:.004,d:.9,v:.15});tone(mtof(m+12),t,{a:.004,d:.3,v:.035});noise(t,{d:.04,v:.05,type:"lowpass",f:900})},
+  drop(){if(!this.ok())return;const t=A.ctx.currentTime;tone(150,t,{d:.16,v:.16,f2:75});noise(t,{d:.07,v:.07,type:"lowpass",f:600})},
+  box(){if(!this.ok())return;const t=A.ctx.currentTime;noise(t,{d:.18,v:.11,f:1800,q:.8,a:.02});noise(t+.07,{d:.14,v:.07,f:3500,q:1});tone(110,t,{d:.12,v:.09,f2:80})},
+  wrong(){if(!this.ok())return;const t=A.ctx.currentTime;tone(mtof(67),t,{type:"triangle",d:.25,v:.08,lp:1800});tone(mtof(63),t+.14,{type:"triangle",d:.35,v:.08,lp:1800})},
+  win(){if(!this.ok())return;const t=A.ctx.currentTime;[65,69,72,77,81].forEach((m,i)=>{tone(mtof(m),t+i*.11,{d:1.4,v:.11});tone(mtof(m+12),t+i*.11,{d:.6,v:.03})})},
+  lose(){if(!this.ok())return;const t=A.ctx.currentTime;[69,65,62].forEach((m,i)=>tone(mtof(m),t+i*.22,{type:"triangle",d:.7,v:.08,lp:1500}))},
+  tick(){if(this.ok())tone(1900,A.ctx.currentTime,{d:.03,v:.03})}
+};
+// ---- musica generativa: pad morbidi + carillon con eco ----
+const CHORDS=[[53,57,60,64],[50,57,60,65],[46,53,57,62],[48,55,60,62]];
+const mus={on:false,next:0,idx:0,timer:null};
+function pad(notes,t,dur){
+  const c=A.ctx;
+  for(const m of notes)for(const det of[-6,6]){
+    const o=c.createOscillator(),g=c.createGain(),f=c.createBiquadFilter();
+    o.type=det<0?"sine":"triangle";o.frequency.value=mtof(m);o.detune.value=det;f.type="lowpass";f.frequency.value=850;
+    const v=.03;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+2.5);g.gain.setValueAtTime(v,t+dur-.3);g.gain.linearRampToValueAtTime(0,t+dur+2.5);
+    o.connect(f);f.connect(g);g.connect(A.mus);o.start(t);o.stop(t+dur+2.6)}
+  const o=c.createOscillator(),g=c.createGain();o.frequency.value=mtof(notes[0]-12);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.06,t+1.5);g.gain.linearRampToValueAtTime(0,t+dur+1.5);o.connect(g);g.connect(A.mus);o.start(t);o.stop(t+dur+1.6);
+}
+function bell(m,t,v){const c=A.ctx;for(const[mul,vv,d]of[[1,v,2.4],[2,v*.25,1.2],[3.01,v*.07,.6]]){const o=c.createOscillator(),g=c.createGain();o.frequency.value=mtof(m)*mul;
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vv,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g);g.connect(A.mus);g.connect(A.dly);o.start(t);o.stop(t+d+.05)}}
+function schedule(){
+  if(!mus.on||!A.ctx)return;const c=A.ctx;
+  while(mus.next<c.currentTime+3){
+    const t=mus.next,dur=8;pad(CHORDS[mus.idx%CHORDS.length],t,dur);
+    const pool=PENTA.filter(m=>m>=69);let tt=t+.6+Math.random()*1.2;
+    while(tt<t+dur-.5){if(Math.random()<.75)bell(pool[Math.floor(Math.random()*pool.length)],tt,.045+Math.random()*.03);tt+=[.5,1,1,1.5,2][Math.floor(Math.random()*5)]}
+    mus.next+=dur;mus.idx++;
+  }
+}
+function musicOn(){if(!A.ctx)return;mus.on=true;const c=A.ctx;A.mus.gain.cancelScheduledValues(c.currentTime);A.mus.gain.setTargetAtTime(SET.vol,c.currentTime,.8);
+  if(mus.next<c.currentTime)mus.next=c.currentTime+.1;schedule();clearInterval(mus.timer);mus.timer=setInterval(schedule,700)}
+function musicOff(){mus.on=false;clearInterval(mus.timer);if(A.ctx){A.mus.gain.cancelScheduledValues(A.ctx.currentTime);A.mus.gain.setTargetAtTime(0,A.ctx.currentTime,.4)}}
+function updMusicBtn(){document.getElementById("musicB").textContent=SET.music?"🎵":"🔇"}
+
+// ================= Vista: zoom e spostamento =================
+let VW=960,VH=640,baseZ=1,cam={x:480,y:300,z:1},home={x:480,y:300},bounds=[0,0,960,640];
+function Z(){return baseZ*cam.z}
+function ps(e){const r=cv.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+function toWorld(s){const z=Z();return{x:(s.x-VW/2)/z+cam.x,y:(s.y-VH/2)/z+cam.y}}
+function pt(e){return toWorld(ps(e))}
+function computeBase(){
+  const x0=ox-(N+.4)*U,x1=ox+(N+.4)*U,y0=P(-.3,-.3,WH)[1]-40,y1=P(N,N,-.5)[1]+8;
+  bounds=[x0,y0,x1,y1];home={x:(x0+x1)/2,y:(y0+y1)/2};baseZ=Math.min(VW/(x1-x0),VH/(y1-y0));
+}
+function clampCam(){
+  cam.z=clamp(cam.z,1,4);if(cam.z<=1.001){cam.z=1;cam.x=home.x;cam.y=home.y;return}
+  const z=Z(),hw=VW/2/z,hh=VH/2/z,[x0,y0,x1,y1]=bounds;
+  cam.x=(x1-x0)>2*hw?clamp(cam.x,x0+hw,x1-hw):home.x;cam.y=(y1-y0)>2*hh?clamp(cam.y,y0+hh,y1-hh):home.y;
+}
+function zoomAt(s,nz){const w=toWorld(s);cam.z=clamp(nz,1,4);const z=Z();cam.x=w.x-(s.x-VW/2)/z;cam.y=w.y-(s.y-VH/2)/z;clampCam();dirty=true}
 
 // ---------- input ----------
-function pt(e){const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)/scale,y:(e.clientY-r.top)/scale}}
 function inRect(p,r){return r&&p.x>=r[0]&&p.x<=r[0]+r[2]&&p.y>=r[1]&&p.y<=r[1]+r[3]}
 function pickItem(p){for(let k=lastOrder.length-1;k>=0;k--){const o=lastOrder[k];if(o.kind==="item"&&inRect(p,o.it.rect))return o.it}return null}
 function pickCarton(p){for(let k=lastOrder.length-1;k>=0;k--){const o=lastOrder[k];if(o.kind==="carton"&&o.bb&&p.x>=o.bb[0]&&p.x<=o.bb[2]&&p.y>=o.bb[1]&&p.y<=o.bb[3])return o}return null}
@@ -547,44 +669,91 @@ function findTarget(it,bx,by){
   for(const s of R.slots){if(s.item&&s.item!==it)continue;const c=slotCenter(s);const d=Math.hypot(c[0]-cx,c[1]-cy);if(d<bd){bd=d;best=s}}
   return best;
 }
+const ptrs=new Map();let pinch=null,pan=null,lastTap={t:0,x:0,y:0};
 cv.addEventListener("pointerdown",e=>{
-  if(finished)return;e.preventDefault();const p=pt(e);
-  const it=pickItem(p);
-  if(it){cv.setPointerCapture(e.pointerId);
-    const r=it.rect,bx=r[0]+r[2]/2,by=it.plane==="top"?r[1]+r[3]-it.s*.04:r[1]+r[3]*.5+it.s*.5;
-    drag={it,dx:bx-p.x,dy:by-p.y,bx,by,prev:{state:it.state,slot:it.slot,x:it.x,y:it.y,z:it.z,plane:it.plane},target:null};
-    if(it.slot){it.slot.item=null;it.slot=null}it.state="drag";it.anim=null;it.bad=false;if(hint&&hint.it===it){}pop(440);dirty=true;return}
-  const c=pickCarton(p);if(c){if(hint&&hint.carton===c)hint=null;openCarton(c)}
+  e.preventDefault();const s=ps(e);ptrs.set(e.pointerId,s);
+  if(ptrs.size===2&&!drag){pan=null;const[a,b]=[...ptrs.values()];const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+    pinch={d:Math.hypot(a.x-b.x,a.y-b.y)||1,z:cam.z,w:toWorld(mid)};return}
+  if(ptrs.size>1)return;
+  const p=toWorld(s);
+  if(!finished){
+    const it=pickItem(p);
+    if(it){timerOn=true;cv.setPointerCapture(e.pointerId);
+      const r=it.rect,bx=r[0]+r[2]/2,by=it.plane==="top"?r[1]+r[3]-it.s*.04:r[1]+r[3]*.5+it.s*.5;
+      drag={it,dx:bx-p.x,dy:by-p.y,bx,by,prev:{state:it.state,slot:it.slot,x:it.x,y:it.y,z:it.z,plane:it.plane},target:null};
+      if(it.slot){it.slot.item=null;it.slot=null}it.state="drag";it.anim=null;it.bad=false;SFX.pick();dirty=true;return}
+    const c=pickCarton(p);if(c){timerOn=true;if(hint&&hint.carton===c)hint=null;openCarton(c);return}
+  }
+  if(now-lastTap.t<320&&Math.hypot(s.x-lastTap.x,s.y-lastTap.y)<30){zoomAt(s,cam.z>1.3?1:2.2);lastTap.t=0;return}
+  lastTap={t:now,x:s.x,y:s.y};
+  cv.setPointerCapture(e.pointerId);pan={sx:s.x,sy:s.y,cx:cam.x,cy:cam.y};
 });
 cv.addEventListener("pointermove",e=>{
-  const p=pt(e);
+  const s=ps(e);if(ptrs.has(e.pointerId))ptrs.set(e.pointerId,s);
+  if(pinch&&ptrs.size>=2){const[a,b]=[...ptrs.values()];const d=Math.hypot(a.x-b.x,a.y-b.y),mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+    cam.z=clamp(pinch.z*d/pinch.d,1,4);const z=Z();cam.x=pinch.w.x-(mid.x-VW/2)/z;cam.y=pinch.w.y-(mid.y-VH/2)/z;clampCam();dirty=true;return}
+  const p=toWorld(s);
   if(drag){drag.bx=p.x+drag.dx;drag.by=p.y+drag.dy;drag.target=findTarget(drag.it,drag.bx,drag.by);dirty=true;return}
-  if(e.pointerType==="mouse"){const h=pickItem(p);const c=h?null:pickCarton(p);if(h!==hover){hover=h;dirty=true}cv.style.cursor=h?"grab":c?"pointer":"default"}
+  if(pan){const z=Z();cam.x=pan.cx-(s.x-pan.sx)/z;cam.y=pan.cy-(s.y-pan.sy)/z;clampCam();dirty=true;return}
+  if(e.pointerType==="mouse"){const h=pickItem(p);const c=h?null:pickCarton(p);if(h!==hover){hover=h;dirty=true}cv.style.cursor=h?"grab":c?"pointer":(cam.z>1?"move":"default")}
 });
+function ptrUp(e){
+  ptrs.delete(e.pointerId);
+  if(pinch){if(ptrs.size<2)pinch=null;pan=null;return}
+  if(drag)endDrag();pan=null;
+}
+cv.addEventListener("pointerup",ptrUp);cv.addEventListener("pointercancel",ptrUp);
+cv.addEventListener("pointerleave",()=>{if(hover){hover=null;dirty=true}});
+cv.addEventListener("wheel",e=>{e.preventDefault();zoomAt(ps(e),cam.z*Math.exp(-e.deltaY*.0015))},{passive:false});
+document.getElementById("zIn").onclick=()=>zoomAt({x:VW/2,y:VH/2},cam.z*1.4);
+document.getElementById("zOut").onclick=()=>zoomAt({x:VW/2,y:VH/2},cam.z/1.4);
+document.getElementById("zFit").onclick=()=>{cam.z=1;clampCam();dirty=true};
+
 function endDrag(){
   if(!drag)return;const it=drag.it,t=drag.target;
-  if(t){it.state="slot";it.slot=t;t.item=it;it.x=t.x;it.y=t.y;it.z=t.z;it.plane=t.plane;it.popT=now;pop(700)}
+  if(t&&RULE.errs&&t.tag!==it.tag){
+    errors++;it.flash=now;SFX.wrong();
+    const[sx,sy]=freeSpot(clamp(t.x,.6,N-.6)+.7,clamp(t.y,.6,N-.6)+.7,it);
+    Object.assign(it,{state:"loose",slot:null,x:sx,y:sy,z:0,plane:"top",bad:false});
+    it.anim={t0:now,dur:380,fx:t.plane==="L"?.3:t.x,fy:t.plane==="R"?.3:t.y,fz:t.z};
+    showToast(`Non va lì! Errori: ${errors}/${RULE.errs}`);
+    drag=null;dirty=true;updateStatus();updateCount();
+    if(errors>=RULE.errs)setTimeout(()=>lose("errs"),450);
+    return;
+  }
+  if(t){it.state="slot";it.slot=t;t.item=it;it.x=t.x;it.y=t.y;it.z=t.z;it.plane=t.plane;it.popT=now;SFX.place()}
   else{const[fx,fy]=inv(drag.bx,drag.by);
-    if(fx>-.2&&fy>-.2&&fx<N+.2&&fy<N+.2){const[sx,sy]=freeSpot(fx,fy,it);it.state="loose";it.x=sx;it.y=sy;it.z=0;it.plane="top";pop(300,"triangle")}
+    if(fx>-.2&&fy>-.2&&fx<N+.2&&fy<N+.2){const[sx,sy]=freeSpot(fx,fy,it);it.state="loose";it.x=sx;it.y=sy;it.z=0;it.plane="top";SFX.drop()}
     else{const pv=drag.prev;Object.assign(it,{state:pv.state,x:pv.x,y:pv.y,z:pv.z,plane:pv.plane});if(pv.slot&&!pv.slot.item){it.slot=pv.slot;pv.slot.item=it}else if(pv.slot){const[sx,sy]=freeSpot(N/2,N/2,it);Object.assign(it,{state:"loose",slot:null,x:sx,y:sy,z:0,plane:"top"})}}}
   if(hint&&hint.it===it)hint=null;
   drag=null;dirty=true;check();
 }
-cv.addEventListener("pointerup",endDrag);cv.addEventListener("pointercancel",endDrag);
-cv.addEventListener("pointerleave",()=>{if(hover){hover=null;dirty=true}});
 
 // ---------- interfaccia ----------
 let toastT;
 function showToast(t){const el=document.getElementById("toast");el.textContent=t;el.style.opacity=1;clearTimeout(toastT);toastT=setTimeout(()=>el.style.opacity=0,2400)}
 function overlay(html,buttons){
   const o=document.createElement("div");o.className="overlay";const c=document.createElement("div");c.className="card";c.innerHTML=html;o.appendChild(c);
-  for(const[label,cls,fn]of buttons){const b=document.createElement("button");b.className=cls;b.textContent=label;b.style.margin="4px";b.onclick=()=>{o.remove();fn()};c.appendChild(b)}
+  for(const[label,cls,fn]of buttons){const b=document.createElement("button");b.className=cls;b.textContent=label;b.style.margin="4px";b.onclick=()=>{o.remove();SFX.ui();fn()};c.appendChild(b)}
   holder.appendChild(o);return o;
 }
+function fmtTime(s){s=Math.ceil(s);return`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`}
+function updateStatus(){
+  const te=document.getElementById("timer"),ee=document.getElementById("errs");
+  te.style.display=RULE.time?"inline-block":"none";ee.style.display=RULE.errs?"inline-block":"none";
+  if(RULE.time){te.textContent="⏱ "+fmtTime(timeLeft);te.classList.toggle("low",timeLeft<=20&&!finished)}
+  if(RULE.errs)ee.textContent=`❌ ${errors}/${RULE.errs}`;
+}
+function lose(kind){
+  if(finished)return;finished=true;drag=null;hint=null;SFX.lose();updateStatus();
+  overlay(`<div class="big">${kind==="time"?"⏰":"💥"}</div><h2>${kind==="time"?"Tempo scaduto":"Troppi errori"}</h2><p>${kind==="time"?"La stanza non è finita in tempo.":"Hai raggiunto il numero massimo di errori."} Riprova!</p>`,
+    [["Riprova la stanza","primary",()=>loadRoom(ri,false)],["Impostazioni","",()=>settingsMenu(()=>loadRoom(ri,false))]]);
+}
 function win(){
-  [660,880,1100].forEach((f,i)=>setTimeout(()=>pop(f),i*110));
+  SFX.win();
   if(ri<ROOMS.length-1){
-    overlay(`<div class="big">✨</div><h2>${room.name}: tutto a posto!</h2><p>Ogni oggetto ha trovato il suo posto.</p>`,[["Prossima stanza","primary",()=>loadRoom(ri+1)]]);
+    const extra=RULE.time?`<p class="how">Tempo rimasto: ${fmtTime(timeLeft)}${RULE.errs?` · Errori: ${errors}/${RULE.errs}`:""}</p>`:RULE.errs?`<p class="how">Errori: ${errors}/${RULE.errs}</p>`:"";
+    overlay(`<div class="big">✨</div><h2>${room.name}: tutto a posto!</h2><p>Ogni oggetto ha trovato il suo posto.</p>${extra}`,[["Prossima stanza","primary",()=>loadRoom(ri+1)]]);
   }else{
     overlay(`<div class="big">🧸</div><h2>Fine</h2><p>Cinque case, undici stanze, tanti scatoloni.<br>Il vecchio orsetto adesso ha un nuovo padrone.</p>`,[["Rigioca dall'inizio","primary",()=>loadRoom(0)]]);
   }
@@ -596,6 +765,27 @@ function roomsMenu(){
   ROOMS.forEach((r,i)=>{if(r.h!==h){h=r.h;const d=document.createElement("div");d.className="h";d.textContent=`${HOUSES[h].year} · ${HOUSES[h].name}`;box.appendChild(d)}
     const b=document.createElement("button");b.textContent=(i<=mx?"":"🔒 ")+r.name+(i===ri?"  ← qui":"");b.disabled=i>mx;b.onclick=()=>{o.remove();loadRoom(i)};box.appendChild(b)});
 }
+function settingsMenu(after){
+  const seg=(k,opts)=>`<div class="seg" data-k="${k}">${opts.map(([v,l])=>`<button data-v="${v}">${l}</button>`).join("")}</div>`;
+  const o=overlay(`<h2>Impostazioni</h2><div class="set">
+    <div class="row"><div class="lab">🎵 Musica di sottofondo</div>${seg("music",[[1,"Accesa"],[0,"Spenta"]])}
+      <label class="note">Volume musica <input type="range" min="0" max="1" step="0.05" id="volR"></label></div>
+    <div class="row"><div class="lab">🔔 Effetti sonori</div>${seg("sfx",[[1,"Accesi"],[0,"Spenti"]])}</div>
+    <div class="row"><div class="lab">⏱ Tempo per ogni stanza</div>${seg("time",[[0,"Nessun limite"],[1,"1 min"],[2,"2 min"],[3,"3 min"],[5,"5 min"],[10,"10 min"]])}</div>
+    <div class="row"><div class="lab">❌ Errori massimi per stanza</div>${seg("errs",[[0,"Nessun limite"],[1,"1"],[3,"3"],[5,"5"],[10,"10"]])}
+      <div class="note">Con un limite di errori, un oggetto messo nel posto sbagliato viene respinto subito e conta come errore.</div></div>
+    <div class="note">Tempo ed errori valgono dalla prossima stanza, oppure subito se ricominci la stanza con ↺.</div>
+  </div>`,[["Fatto","primary",()=>{after&&after()}]]);
+  const refresh=()=>o.querySelectorAll(".seg").forEach(sg=>{const k=sg.dataset.k;sg.querySelectorAll("button").forEach(b=>b.classList.toggle("on",String(+SET[k])===b.dataset.v))});
+  o.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
+    const k=b.parentNode.dataset.k;SET[k]=(k==="music"||k==="sfx")?b.dataset.v==="1":+b.dataset.v;saveSet();refresh();
+    if(k==="music"){initAudio();SET.music?musicOn():musicOff();updMusicBtn()}
+    if(k==="sfx"&&A.ctx)A.sfx.gain.value=SET.sfx?.8:0;
+    SFX.ui();
+  });
+  const vr=o.querySelector("#volR");vr.value=SET.vol;vr.oninput=()=>{SET.vol=+vr.value;saveSet();if(A.ctx&&mus.on)A.mus.gain.setTargetAtTime(SET.vol,A.ctx.currentTime,.1)};
+  refresh();
+}
 function doHint(){
   if(finished)return;
   let it=items.find(i=>i.bad)||items.find(i=>i.state==="loose")||items.find(i=>i.state==="slot"&&i.slot.tag!==i.tag);
@@ -605,19 +795,22 @@ function doHint(){
 }
 document.getElementById("hintB").onclick=doHint;
 document.getElementById("roomsB").onclick=roomsMenu;
+document.getElementById("setB").onclick=()=>settingsMenu();
 document.getElementById("restartB").onclick=()=>loadRoom(ri,false);
-document.getElementById("soundB").onclick=e=>{soundOn=!soundOn;e.currentTarget.textContent=soundOn?"🔊":"🔇"};
+document.getElementById("musicB").onclick=()=>{SET.music=!SET.music;saveSet();initAudio();SET.music?musicOn():musicOff();updMusicBtn()};
+updMusicBtn();
 
 function fit(){
-  const w=wrap.clientWidth-12,h=wrap.clientHeight-12;scale=Math.max(.25,Math.min(w/CW,h/CH));
-  holder.style.width=CW*scale+"px";holder.style.height=CH*scale+"px";
-  cv.width=Math.round(CW*scale*dpr);cv.height=Math.round(CH*scale*dpr);cv.style.width=CW*scale+"px";cv.style.height=CH*scale+"px";dirty=true;
+  VW=Math.max(100,wrap.clientWidth);VH=Math.max(100,wrap.clientHeight);
+  cv.width=Math.round(VW*dpr);cv.height=Math.round(VH*dpr);
+  if(room){const z=cam.z,x=cam.x,y=cam.y;computeBase();cam.z=z;cam.x=x;cam.y=y;clampCam()}
+  dirty=true;
 }
 addEventListener("resize",fit);
 fit();
 const saved=parseInt(store("scatoloni3-cur")||"0",10)||0;
 loadRoom(0,false);
-const start=overlay(`<div class="big">📦</div><h2>Scatoloni</h2><p>Un gioco tranquillo sul disfare traslochi.<br>Tira fuori gli oggetti, mettili al loro posto e scopri una vita, stanza dopo stanza.</p>`,
+const start=overlay(`<div class="big">📦</div><h2>Scatoloni</h2><p>Un gioco tranquillo sul disfare traslochi.<br>Tira fuori gli oggetti, mettili al loro posto e scopri una vita, stanza dopo stanza.</p><p class="how">Due dita per ingrandire, doppio tocco per zoomare. ⚙️ per musica, tempo ed errori.</p>`,
   [["Nuova partita","primary",()=>loadRoom(0)]].concat(saved>0?[[`Continua: ${ROOMS[saved].name}`,"",()=>loadRoom(saved)]]:[]));
 requestAnimationFrame(frame);
 addEventListener("orientationchange",()=>setTimeout(fit,300));
