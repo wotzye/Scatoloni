@@ -48,6 +48,7 @@ button.primary{background:var(--accent);color:#fff;padding:11px 26px;font-size:1
 .card .big{font-size:54px;margin-bottom:4px}
 .rooms{display:grid;gap:6px;text-align:left;margin:10px 0 16px}
 .rooms .h{font-weight:900;margin-top:8px;font-size:14px;color:var(--accent)}
+.stars{font-size:30px;color:#f4b400;letter-spacing:4px;margin:2px 0 6px;text-shadow:0 2px 0 #3b2a26}.harm{text-align:left;font-size:14px;margin:6px auto;max-width:330px;line-height:1.5;color:#8a7a70}.harm .ok{color:#2d6a4f;font-weight:700}
 .rooms button{background:#f6e9da;text-align:left;font-weight:700;box-shadow:none}
 .rooms button[disabled]{opacity:.4;cursor:default}
 .set{text-align:left;display:grid;gap:14px;margin:6px 0 16px}
@@ -97,7 +98,7 @@ button.primary{background:var(--accent);color:#fff;padding:11px 26px;font-size:1
 <div id="wrap"><div id="holder">
   <canvas id="cv"></canvas>
   <div id="hud">
-    <span class="pill" id="count"></span><span class="pill" id="puz"></span><span class="pill" id="cmb"></span><span class="pill" id="timer"></span><span class="pill" id="errs"></span>
+    <span class="pill" id="count"></span><span class="pill" id="puz"></span><span class="pill" id="cmb"></span><span class="pill" id="harm"></span><span class="pill" id="timer"></span><span class="pill" id="errs"></span>
     <span class="sp"></span>
     <button id="hintB" title="Suggerimento">💡</button>
     <button id="roomsB" title="Stanze">🏠</button>
@@ -120,6 +121,7 @@ const HOUSES=[
  {year:"2019",name:"Casa nostra",story:"Adesso gli scatoloni sono di due persone. Per qualche oggetto bisognerà trovare un compromesso."},
  {year:"2024",name:"Una stanza in più",story:"Questa volta la stanza da sistemare non è per me."}
 ];
+const ENDING="Otto case, ventidue stanze, un'infinità di scatoloni.<br>L'orsetto è tornato nella stanza da cui era partito, e la mappa è di nuovo appesa al suo posto.";
 const W1="#c99263";
 // dimensione (ingombro in px) di ogni oggetto: decide in quali posti entra
 const SIZE={teddy:42,alarm:30,books:38,bookrow:40,train:36,dino:38,pencils:28,notebook:32,crayons:30,robot:38,ball:32,torch:26,desklamp:36,piggy:30,cube:24,car:32,backpack:42,
@@ -349,7 +351,7 @@ const U=44,ZU=40,WH=5,INK="#3b2a26";
 let N=8,ox=480,oy=300;
 const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),holder=document.getElementById("holder"),wrap=document.getElementById("wrap");
 let dpr=Math.min(2,window.devicePixelRatio||1),dirty=true,now=0;
-let ri=0,room,R,items=[],cartons=[],drag=null,hover=null,hint=null,lastOrder=[],finished=false,errors=0,timeLeft=0,timerOn=false,RULE={time:0,errs:0};
+let MODE=store("scatoloni-mode")||"story",ri=0,room,R,items=[],cartons=[],drag=null,hover=null,hint=null,lastOrder=[],finished=false,errors=0,timeLeft=0,timerOn=false,RULE={time:0,errs:0};
 const FX=[];
 
 function P(x,y,z){return[ox+(x-y)*U,oy+(x+y)*U/2-z*ZU]}
@@ -367,13 +369,16 @@ function builder(){
   r.tag=(k,v)=>r.tags[k]=v;
   r.box=(x,y,z,w,d,h,c)=>{const b={kind:"box",x,y,z,w,d,h,c,decos:[]};r.boxes.push(b);return b};
   r.deco=(b,o)=>{b.decos.push(o);return b};
-  const mk=o=>{const sl=Object.assign({item:null,plane:"top"},o);r.slots.push(sl);return sl};
-  r.slot=(b,kind,u,v,cap)=>{const sl=mk({kind,cap,x:b.x+u*b.w,y:b.y+v*b.d,z:b.z+b.h});b.decos.push({t:"mark",slot:sl});return sl};
-  r.floorSlot=(x,y,cap)=>mk({kind:"floor",cap,x,y,z:0,floor:true});
-  r.wallSlot=(side,a,z,cap)=>mk({kind:"wall",cap,plane:side,x:side==="L"?0:a,y:side==="L"?a:0,z});
+  r.surfs=[];
+  const mk=o=>{const sl=Object.assign({item:null,plane:"top",cont:true},o);r.slots.push(sl);return sl};
+  // superficie libera sul piano di una scatola: il tipo dipende dal punto (il più vicino tra quelli dichiarati)
+  r.surf=(b,kind,u,v,o={})=>{let sf=r.surfs.find(q=>q.box===b);if(!sf){sf=Object.assign({box:b,pts:[],inset:.04},o);r.surfs.push(sf);b.surf=sf}sf.pts.push({u,v,kind});return sf};
+  r.slot=(b,kind,u,v,cap)=>r.surf(b,kind,u,v);
+  r.floorSlot=()=>{};
+  r.wallSlot=()=>{};
   r.window=(side,a0,a1,z0,z1)=>{r.wall.push({t:"window",side,a0,a1,z0,z1});
-    if(side==="L")r.box(0,a0-.1,z0-.12,.35,a1-a0+.2,.12,"#fffaf2");else r.box(a0-.1,0,z0-.12,a1-a0+.2,.35,.12,"#fffaf2")};
-  r.sill=(side,a0,a1,z0,us,cap)=>{const len=a1-a0+.2;us.forEach(u=>{const a=a0-.1+u*len;mk({kind:"sill",cap,x:side==="L"?.2:a,y:side==="L"?a:.2,z:z0})})};
+    const b=side==="L"?r.box(0,a0-.1,z0-.12,.35,a1-a0+.2,.12,"#fffaf2"):r.box(a0-.1,0,z0-.12,a1-a0+.2,.35,.12,"#fffaf2");b.win=side;return b};
+  r.sill=(side,a0)=>{const b=r.boxes.find(q=>q.win===side&&Math.abs((side==="L"?q.y:q.x)-(a0-.1))<.01);if(b)r.surf(b,"sill",.5,.5,{inset:.01})};
   r.frame=(side,a0,a1,z0,z1,c)=>r.wall.push({t:"frame",side,a0,a1,z0,z1,c});
   r.rug=(x,y,w,d,c,round)=>r.floor.push({x,y,w,d,c,round});
   r.table=(x,y,w,d,h,c)=>{const l=.14,lc=mixHex(c,-.2);
@@ -385,6 +390,7 @@ function builder(){
     r.box(x+.27,y+.05,.55,w-.32,d-.1,.35,"#fffaf2");const pillow=r.box(x+.35,y+.25,.9,.9,d-.5,.22,"#ffffff");
     const blanket=r.box(x+1.4,y+.03,.9,w-1.45,d-.06,.1,bl);
     const op={type:"blanket",label:"le coperte",box:blanket,x0:x+1.4,x1:x+w-.05,fold:1.05,p:0,target:0,slots:[],bed:{x,y,w,d}};r.opens.push(op);
+    r.surf(blanket,"bed",.5,.5,{need:()=>op.p<.1,inset:.08});
     return{pillow,blanket,op}};
   r.bedCovers=(b,n,cap)=>{const{x,y,w,d}=b.op.bed;const cx=x+1.45+(w-2.6)/2;
     for(let k=0;k<n;k++)b.op.slots.push(mk({kind:"bedin",cap,x:cx,y:y+(k+.5)/n*d,z:.9,owner:b.op}))};
@@ -459,7 +465,7 @@ function doorParts(op){
 function slotOn(s){return!s.owner||s.owner.p>.85}
 function isHidden(it){const s=it.slot;if(!s||!s.owner)return false;const t=s.owner.type;return(t==="drawer"||t==="blanket")&&s.owner.p<.5}
 function fits(it,s){return it.s<=s.cap+1}
-function allowed(it,s){return fits(it,s)&&it.ok.includes(s.kind)}
+function allowed(it,s){if(R&&R.creative)return!!s&&(!s.cont||fits(it,s));return!!s&&(!s.cont||fits(it,s))&&it.ok.includes(s.kind)}
 
 // ---------- caricamento ----------
 const MCACHE={};function modelOf(k){return MCACHE[k]||(MCACHE[k]=makeModel(k))}
@@ -467,19 +473,21 @@ function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random
 function loadRoom(i,intro=true){
   ri=i;applyLook(i);N=room.N;finished=false;drag=null;hover=null;hint=null;FX.length=0;
   oy=300;computeBase();cam={x:home.x,y:home.y,z:1};
-  RULE={time:SET.time,errs:SET.errs};errors=0;timeLeft=RULE.time*60;timerOn=false;placeStep=0;
-  store("scatoloni3-cur",String(i));
-  const mx=parseInt(store("scatoloni3-max")||"0",10)||0;if(i>mx)store("scatoloni3-max",String(i));
-  R=builder();room.build(R);R.opens.forEach(updOpen);initPuzzles(i);
-  items=room.items.map(d=>({key:d[0],M:modelOf(d[0]),n:d[1],ok:d[2],s:d[3],state:"queue",slot:null,x:0,y:0,z:0,plane:"top",bad:false}));
+  RULE=MODE==="creative"?{time:0,errs:0}:{time:SET.time,errs:SET.errs};errors=0;timeLeft=RULE.time*60;timerOn=false;placeStep=0;
+  if(MODE!=="creative")store("scatoloni3-cur",String(i));
+  const mx=parseInt(store("scatoloni3-max")||"0",10)||0;if(i>mx&&MODE!=="creative")store("scatoloni3-max",String(i));
+  R=builder();room.build(R);R.opens.forEach(updOpen);R.creative=MODE==="creative";initPuzzles(i);
+  if(R.creative)for(const k in R.tags)if(R.tags[k].lock)R.tags[k].lock=null;
+  items=room.items.map(d=>({key:d[0],M:modelOf(d[0]),n:d[1],ok:expandOk(d[2]),s:d[3],state:"queue",slot:null,x:0,y:0,z:0,plane:"top",bad:false}));
   items=shuffle(items.concat(initCombos(i)));
   cartons=room.cartons.map(([x,y])=>({kind:"carton",x,y,z:0,w:1.1,d:1.1,h:.9,c:"#d39a5e",queue:[],decos:[]}));
   let ck=0;for(const it of items){if(it.inK){const s=R.slots.find(s=>s.kind===it.inK&&!s.item&&fits(it,s));if(s){it.state="slot";it.slot=s;s.item=it;it.x=s.x;it.y=s.y;it.z=s.z;continue}}cartons[ck++%cartons.length].queue.push(it)}
+  R.pieces=computePieces();arrApply(arrLog());
   const H=HOUSES[room.h];
   updateCount();dirty=true;
   if(intro){
     const first=i===0||ROOMS[i-1].h!==room.h;
-    if(first)overlay(`<div class="year">${H.year}</div><h2>${H.name}</h2><p>${H.story}</p><p class="how">Prima arreda la stanza come ti piace. Poi apri gli scatoloni e sistema ogni oggetto dove ha senso. Tocca gli oggetti per esaminarli: nascondono indizi per gli enigmi 🧩.</p>`,[["Inizia","primary",()=>lookMenu()]]);
+    if(first)overlay(`<div class="year">${H.year}</div><h2>${H.name}</h2><p>${H.story}</p><p class="how">Prima arreda la stanza: colori, tende e mobili dove vuoi. Poi apri gli scatoloni: ogni oggetto va dove ha senso, ma il punto esatto lo scegli tu. Le stelle ⭐ premiano l\'armonia. Tocca gli oggetti per scoprire indizi 🧩.</p>`,[["Inizia","primary",()=>lookMenu()]]);
     else{showToast(`${H.name} · ${room.name}`);lookMenu()}
   }else showToast(room.name);
 }
@@ -490,7 +498,6 @@ function okSpot(x,y,ignore){
   if(x<.35||y<.35||x>N-.35||y>N-.35)return false;
   for(const b of blockers())if(x>b.x-.3&&x<b.x+b.w+.3&&y>b.y-.3&&y<b.y+b.d+.3)return false;
   for(const it of items)if(it!==ignore&&it.state==="loose"&&Math.hypot(it.x-x,it.y-y)<.62)return false;
-  for(const s of R.slots)if(s.floor&&Math.hypot(s.x-x,s.y-y)<.5)return false;
   return true;
 }
 function freeSpot(px,py,ignore){
@@ -527,7 +534,8 @@ function updateCount(){
   const inBox=cartons.reduce((a,c)=>a+c.queue.length,0);
   document.getElementById("count").textContent=(inBox?`📦 ${inBox} · `:"")+`✅ ${placed}/${totalF}`;
   const ce=document.getElementById("cmb");ce.style.display=rc.length?"inline-block":"none";ce.textContent=`🔧 ${rc.filter(r=>r.done).length}/${rc.length}`;
-  const pe=document.getElementById("puz"),pl=(R&&R.puzzles)||[];pe.style.display=pl.length?"inline-block":"none";pe.textContent=`🧩 ${pl.filter(p=>p.solved).length}/${pl.length}`;
+  const he=document.getElementById("harm");if(he&&R){const h=harmony();he.style.display=h.tot&&!R.creative?"inline-block":"none";he.textContent=`⭐ ${h.n}/${h.tot}`;he.title=starStr(h.stars)}
+  const pe=document.getElementById("puz"),pl=(R&&R.puzzles)||[];pe.style.display=pl.length&&!R.creative?"inline-block":"none";pe.textContent=`🧩 ${pl.filter(p=>p.solved).length}/${pl.length}`;
 }
 function check(){
   updateCount();
@@ -537,7 +545,7 @@ function check(){
     return}
   const wrong=items.filter(i=>!allowed(i,i.slot));
   items.forEach(i=>i.bad=wrong.includes(i));
-  const left=(R.puzzles||[]).filter(p=>!p.solved);
+  const left=R.creative?[]:(R.puzzles||[]).filter(p=>!p.solved);
   if(!wrong.length&&left.length){if(!R.puzzleNag){R.puzzleNag=1;showToast("Tutto in ordine! Manca ancora un enigma 🧩")}dirty=true;return}
   if(!wrong.length){finished=true;const c=P(N/2,N/2,1);for(let k=0;k<4;k++)setTimeout(()=>sparkle(c[0]+(Math.random()-.5)*300,c[1]-Math.random()*200,8),k*150);setTimeout(win,900)}
   else{showToast(wrong.length===1?"Un oggetto è in un posto strano":`${wrong.length} oggetti sono in posti strani`);SFX.wrong()}
@@ -629,7 +637,6 @@ function drawWallDecals(){
       poly(wquad(s,a0+.1,a1-.1,z0+.1,z1-.1),c,"rgba(59,42,38,.5)",1);poly(wquad(s,a0+.25,a0+.45,z0+.3,z1-.3),"rgba(255,255,255,.6)")}
   }
   drawProps();
-  for(const s of R.slots)if(s.plane!=="top")drawMark(s);
 }
 function drawFloorDecals(){
   for(const g of R.floor){
@@ -643,11 +650,10 @@ function drawFloorDecals(){
   for(const b of R.boxes.concat(cartons.filter(c=>!c.vanish)))if(b.z<.02&&b.h>.3){const e=.06;ctx.beginPath();
     [P(b.x-e,b.y-e,0),P(b.x+b.w+e,b.y-e,0),P(b.x+b.w+e,b.y+b.d+e,0),P(b.x-e,b.y+b.d+e,0)].forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.fill()}
   ctx.restore();
-  for(const s of R.slots)if(s.floor)drawMark(s);
 }
 // i posti liberi NON si vedono: compaiono solo come aiuto (lampeggio dorato)
 function drawMark(s){
-  if(s.item||!(hint&&hint.slot===s))return;
+  if(s.item||!hint||!hint.slot||(hint.slot.cont&&hint.slot!==s))return;
   const a=.35+.35*Math.sin(now/120);ctx.save();
   if(s.plane==="top"){isoEll(s.x,s.y,s.z,s.cap/40*.42);ctx.fillStyle=`rgba(255,215,90,${a})`;ctx.fill();ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.stroke()}
   else{const hs=s.cap/80+.12,q=s.plane==="L"?s.y:s.x;poly(wquad(s.plane,q-hs,q+hs,s.z-hs*1.1,s.z+hs*1.1),`rgba(255,215,90,${a})`,"#fff",2)}
@@ -717,7 +723,7 @@ function drawDoor(o){
 }
 // ---------- oggetti 3D ----------
 const ITEM_K=1.75;
-function itemPrims(it,plane){if(!it.M.wall)return[it.M.m,it.M.e,0];if(plane==="L")return[it.M.mL,it.M.eL,0];return[it.M.mR,it.M.eR,plane==="top"?-it.M.eR.z0:0]}
+function itemPrims(it,plane){if(!it.M.wall){if(it.rot){const r=rotModel(it.M);return[r.m,r.e,0]}return[it.M.m,it.M.e,0]}if(plane==="L")return[it.M.mL,it.M.eL,0];return[it.M.mR,it.M.eR,plane==="top"?-it.M.eR.z0:0]}
 function drawItemAt(it,sx,sy,plane,sc,glow,alpha){
   const[pr,ex,lift]=itemPrims(it,plane);const k=sc*ITEM_K;sy-=lift*ZU*k;
   if(plane==="top"&&alpha==null&&!glow){const fw=(ex.x1-ex.x0+ex.y1-ex.y0)*U*.55*k;ctx.save();ctx.fillStyle="rgba(60,30,60,.22)";ctx.beginPath();ctx.ellipse(sx,sy+lift*ZU*k-1,Math.max(6,fw*.75),Math.max(3,fw*.28),0,0,Math.PI*2);ctx.fill();ctx.restore()}
@@ -743,6 +749,232 @@ function drawItem(d){
     const lift=it.plane==="top"?-it.M.eR.z0:0;drawClockHands(sp[0],sp[1],it.plane==="L"?"L":"R",sc*ITEM_K,hm[0],hm[1],lift)}
 }
 
+
+// ================= Superfici libere =================
+// Gli oggetti si appoggiano dove vuoi su piani, pavimento e pareti; il "tipo" del punto decide se ha senso.
+const FAM=[["shelf","desk","nightstand","dresser","chest","bookcase","sidetable","coffee","cabinet","tvstand"],["counter","pensile","table"],["sink","shelf","stool","tank","washer"]];
+function expandOk(ok){const o=new Set(ok);for(const f of FAM)if(ok.some(k=>f.includes(k)))f.forEach(k=>o.add(k));return[...o]}
+const FLOOR={floor:true,kind:"floor"};
+function mirrorPrims(m){return m.map(p=>{
+  if(p.t==="b")return{...p,x:p.y,y:p.x,w:p.d,d:p.w,decos:p.decos.map(d=>d.t==="fy"?{t:"fx",v0:d.u0,v1:d.u1,w0:d.w0,w1:d.w1,c:d.c}:d.t==="fx"?{t:"fy",u0:d.v0,u1:d.v1,w0:d.w0,w1:d.w1,c:d.c}:
+    d.t==="rect"?{...d,u0:d.v0,v0:d.u0,u1:d.v1,v1:d.u1}:d.t==="ell"?{...d,u:d.v,v:d.u}:d)};
+  if(p.t==="d")return{...p,x:p.y,y:p.x,ax:p.ax==="x"?"y":p.ax==="y"?"x":p.ax};
+  return{...p,x:p.y,y:p.x}})}
+function rotModel(M){if(!M.r){const m=mirrorPrims(M.m);M.r={m,e:extOf(m)}}return M.r}
+function foot(it){const[,e]=itemPrims(it,"top"),K=ITEM_K;return{cx:(e.x0+e.x1)/2*K,cy:(e.y0+e.y1)/2*K,hx:(e.x1-e.x0)/2*K,hy:(e.y1-e.y0)/2*K,h:(e.z1-e.z0)*K}}
+function surfRect(sf){const b=sf.box,m=sf.inset;return[b.x+m,b.y+m,b.x+b.w-m,b.y+b.d-m]}
+function surfZ(sf){return sf.floor?0:sf.box.z+sf.box.h}
+function kindAt(sf,x,y){if(sf.floor)return"floor";const b=sf.box;let best=sf.pts[0],bd=1e9;
+  for(const p of sf.pts){const d=Math.hypot(b.x+p.u*b.w-x,b.y+p.v*b.d-y);if(d<bd){bd=d;best=p}}return best.kind}
+function ovl(a0,a1,b0,b1){return a0<b1&&a1>b0}
+function onSurf(o,sf){return o.slot&&o.slot.surf===sf&&o.state==="slot"}
+function spotOK(it,sf,x,y,F){
+  F=F||foot(it);const z=surfZ(sf);
+  const fx0=x+F.cx-F.hx,fx1=x+F.cx+F.hx,fy0=y+F.cy-F.hy,fy1=y+F.cy+F.hy,sx=F.hx*.12,sy=F.hy*.12;
+  if(sf.floor){if(fx0<.08||fy0<.08||fx1>N-.08||fy1>N-.08)return false}
+  else{const r=surfRect(sf),ax=F.hx*.35,ay=F.hy*.35;if(fx0+ax<r[0]||fx1-ax>r[2]||fy0+ay<r[1]||fy1-ay>r[3])return false}
+  for(const b of R.boxes){if(b===(sf.box||null)||b.win)continue;
+    if(!ovl(fx0+sx,fx1-sx,b.x,b.x+b.w)||!ovl(fy0+sy,fy1-sy,b.y,b.y+b.d))continue;
+    if(sf.floor){if(b.z<2.05)return false}
+    else if(b.z<z+Math.min(F.h*.6,.7)&&b.z+b.h>z+.02)return false}
+  if(sf.floor)for(const c of cartons)if(!c.vanish&&ovl(fx0,fx1,c.x-.1,c.x+c.w+.1)&&ovl(fy0,fy1,c.y-.1,c.y+c.d+.1))return false;
+  for(const o of items){if(o===it||o.part&&o.state==="queue")continue;
+    const same=sf.floor?(o.state==="loose"||onSurf(o,FLOOR)):onSurf(o,sf);if(!same||isHidden(o))continue;
+    const G=foot(o),gx0=o.x+G.cx-G.hx*.8,gx1=o.x+G.cx+G.hx*.8,gy0=o.y+G.cy-G.hy*.8,gy1=o.y+G.cy+G.hy*.8;
+    if(ovl(fx0+F.hx*.2,fx1-F.hx*.2,gx0,gx1)&&ovl(fy0+F.hy*.2,fy1-F.hy*.2,gy0,gy1))return false}
+  return true;
+}
+function wallExt(it,side){const e=itemPrims(it,side)[1],K=ITEM_K;return side==="L"?{a0:e.y0*K,a1:e.y1*K,z0:e.z0*K,z1:e.z1*K}:{a0:e.x0*K,a1:e.x1*K,z0:e.z0*K,z1:e.z1*K}}
+function wallRects(side,ignore){
+  const L=[];for(const w of R.wall)if(w.side===side){if(w.t==="window")L.push([w.a0-.3,w.a1+.3,w.z0-.35,w.z1+.4]);else L.push([w.a0-.05,w.a1+.05,w.z0-.05,w.z1+.05])}
+  for(const pz of R.puzzles||[]){const p=pz.prop;if(!p||p.side!==side)continue;if(p.type==="garland")L.push([p.a0-.2,p.a1+.2,p.z-.75,p.z+.3]);else L.push([p.a0-.1,p.a0+p.size+.1,p.z0-.1,p.z0+p.size+.1])}
+  for(const b of R.boxes){if(b.win)continue;if(side==="L"?b.x<.6:b.y<.6)L.push(side==="L"?[b.y,b.y+b.d,b.z,b.z+b.h]:[b.x,b.x+b.w,b.z,b.z+b.h])}
+  for(const o of items)if(o!==ignore&&o.state==="slot"&&o.plane===side){const E=wallExt(o,side),a=side==="L"?o.y:o.x;L.push([a+E.a0-.04,a+E.a1+.04,o.z+E.z0-.04,o.z+E.z1+.04])}
+  return L;
+}
+function wallOK(it,side,a,z,E,rects){
+  E=E||wallExt(it,side);const a0=a+E.a0,a1=a+E.a1,z0=z+E.z0,z1=z+E.z1;
+  if(a0<.12||a1>N-.12||z0<.6||z1>WH-.08)return false;
+  for(const r of rects||wallRects(side,it))if(ovl(a0,a1,r[0],r[1])&&ovl(z0,z1,r[2],r[3]))return false;
+  return true;
+}
+function nudge(test,x,y,maxR=.6){
+  if(test(x,y))return[x,y];
+  for(let rad=.1;rad<=maxR+1e-6;rad+=.1){const st=Math.ceil(rad*40);let best=null;
+    for(let k=0;k<st;k++){const a=k/st*Math.PI*2,px=x+Math.cos(a)*rad,py=y+Math.sin(a)*rad;if(test(px,py)){best=[px,py];break}}
+    if(best)return best}
+  return null;
+}
+function placeOn(sf,x,y,it){return{kind:kindAt(sf,x,y),surf:sf,x,y,z:surfZ(sf),plane:"top",item:it||null}}
+function findPlace(it,bx,by){
+  if(it.part)return null;
+  const F=foot(it),cy=by-it.s*.45;let best=null,bd=-1e9;
+  // dentro frigo, armadi, cassetti e sotto le coperte: posti precisi
+  for(const s of R.slots){if((s.item&&s.item!==it)||!slotOn(s)||!fits(it,s))continue;const c=slotCenter(s),d=Math.hypot(c[0]-bx,c[1]-cy);if(d<46&&1e4-d>bd){bd=1e4-d;best=s}}
+  if(best)return best;
+  for(const sf of R.surfs){if(sf.need&&!sf.need())continue;const z=surfZ(sf),r=surfRect(sf);let[x,y]=inv(bx,by+z*ZU);
+    if(x<r[0]-.35||y<r[1]-.35||x>r[2]+.35||y>r[3]+.35)continue;
+    x=clamp(x+F.cx,r[0],r[2])-F.cx;y=clamp(y+F.cy,r[1],r[3])-F.cy;
+    const q=nudge((px,py)=>spotOK(it,sf,px,py,F),x,y,.5);if(!q)continue;
+    const dep=q[0]+q[1]+z*1.1+.3;if(dep>bd){bd=dep;best=placeOn(sf,q[0],q[1])}}
+  {const[x,y]=inv(bx,by);if(x>-.4&&y>-.4&&x<N+.4&&y<N+.4){const q=nudge((px,py)=>spotOK(it,FLOOR,px,py,F),clamp(x,.2,N-.2),clamp(y,.2,N-.2),.7);
+    if(q){const dep=q[0]+q[1];if(dep>bd){bd=dep;best=placeOn(FLOOR,q[0],q[1])}}}}
+  if(it.M.wall)for(const side of["L","R"]){
+    const wy=drag&&drag.it===it&&it.rect?it.rect[1]+it.rect[3]*.5:cy,a=side==="L"?(ox-bx)/U:(bx-ox)/U,zc=(oy+a*U/2-wy)/ZU;if(a<-.2||a>N+.2||zc<.4||zc>WH+.3)continue;
+    const E=wallExt(it,side),rects=wallRects(side,it),q=nudge((pa,pz)=>wallOK(it,side,pa,pz,E,rects),clamp(a,.3,N-.3),clamp(zc,.8,WH-.3),.6);if(!q)continue;
+    const dep=q[0]+q[1]*1.1;if(dep>bd||(best&&best.surf===FLOOR)){bd=dep;best={kind:"wall",x:side==="L"?0:q[0],y:side==="L"?q[0]:0,z:q[1],plane:side,wall:true}}}
+  return best;
+}
+// cerca un posto libero adatto (per il suggerimento)
+function sensiblePlace(it){
+  const F=foot(it);
+  for(const sf of R.surfs){if(sf.need&&!sf.need())continue;const b=sf.box;
+    for(const p of sf.pts){if(!it.ok.includes(p.kind))continue;const q=nudge((px,py)=>spotOK(it,sf,px,py,F)&&kindAt(sf,px,py)===p.kind,b.x+p.u*b.w-F.cx,b.y+p.v*b.d-F.cy,Math.max(b.w,b.d));if(q)return placeOn(sf,q[0],q[1])}}
+  if(it.ok.includes("wall")&&it.M.wall)for(const side of["R","L"]){const E=wallExt(it,side),rects=wallRects(side,it);
+    for(let a=.8;a<N-.5;a+=.4)for(const z of[3.2,2.6,3.8,2.1])if(wallOK(it,side,a,z,E,rects))return{kind:"wall",x:side==="L"?0:a,y:side==="L"?a:0,z,plane:side,cap:it.s}}
+  if(it.ok.includes("floor"))for(let r=1;r<N-1;r+=.5)for(let k=0;k<12;k++){const x=N/2+Math.cos(k/12*6.283)*r*.7,y=N/2+Math.sin(k/12*6.283)*r*.7;if(spotOK(it,FLOOR,x,y,F))return placeOn(FLOOR,x,y)}
+  return null;
+}
+function rotateItem(it){
+  if(it.M.wall){showToast(`${it.n}: si appende così`);SFX.tick();return}
+  it.rot=!it.rot;
+  const s=it.slot;
+  if(s&&s.surf){const q=nudge((px,py)=>spotOK(it,s.surf,px,py),it.x,it.y,.4);
+    if(!q){it.rot=!it.rot;showToast("Non c'è spazio per girarlo qui");SFX.wrong();return}s.x=it.x=q[0];s.y=it.y=q[1]}
+  else if(it.state==="loose"){const[x,y]=freeSpot(it.x,it.y,it);it.x=x;it.y=y}
+  it.popT=now;SFX.place();dirty=true;
+}
+
+// ================= Armonia: 1-3 stelle =================
+// "near": oggetti che stanno bene vicini tra loro · "by": oggetti che stanno bene vicino a un mobile (o alla finestra)
+const THEMES=[
+ {near:["salt","pepper","oil","jar"],t:"Sale, pepe e olio vicini"},
+ {near:["toothbrush","toothpaste"],t:"Spazzolino e dentifricio insieme"},
+ {near:["gel","shampoo","bathsalts","sponge","soap"],t:"Prodotti per lavarsi tutti insieme"},
+ {near:["books","bookrow","magazines","binders","boardgames"],t:"Libri e riviste nello stesso angolo"},
+ {near:["tv","console","joypad"],t:"Angolo videogiochi completo"},
+ {near:["monitor","keyboard","mouse"],t:"Postazione del computer completa"},
+ {near:["cups","glasses","plates","bowls"],t:"Stoviglie tutte insieme"},
+ {near:["shoes","slippers"],t:"Scarpe e ciabatte in coppia"},
+ {near:["train","dino","robot","car","blocks","ball","cube"],t:"Giochi tutti in un angolo"},
+ {near:["pencils","notebook","crayons","pencup"],t:"Matite e quaderni in ordine"},
+ {near:["perfume","jewelry","hairbrush","ring"],t:"Angolo per prepararsi"},
+ {near:["records","speaker"],t:"Angolo della musica"},
+ {near:["bottle","cream","diapers"],t:"Tutto pronto per il cambio"},
+ {near:["coffeemaker","mug","toaster","moka"],t:"Angolo colazione"},
+ {by:["alarm","lamp","phone"],k:["bed","bedin","nightstand"],d:1.6,t:"Sveglia e luce accanto al letto"},
+ {by:["pan","pot","kettle","teapot","moka"],k:["stove"],d:1.6,t:"Pentole vicino ai fornelli"},
+ {by:["plant","basil","cactus","bigplant","vase","flowers"],k:["window"],d:1.8,t:"Piante vicino alla luce"},
+ {by:["teddy","bunny","rattle","mobile"],k:["crib"],d:1.6,t:"Peluche vicino al lettino"},
+ {by:["towels"],k:["shower","tub","sink"],d:1.9,t:"Asciugamani a portata di mano"},
+ {by:["remote","joypad","magazines"],k:["sofa","coffee"],d:1.6,t:"Telecomando vicino al divano"}
+];
+function distToKind(x,y,kind){let best=1e9;
+  if(kind==="window"){for(const w of R.wall)if(w.t==="window"){const a=w.side==="L"?y:x,n=w.side==="L"?x:y;best=Math.min(best,Math.hypot(n,Math.max(0,w.a0-a,a-w.a1)))}return best}
+  for(const sf of R.surfs)if(sf.pts.some(p=>p.kind===kind)){const b=sf.box;best=Math.min(best,Math.hypot(Math.max(0,b.x-x,x-b.x-b.w),Math.max(0,b.y-y,y-b.y-b.d)))}
+  for(const s of R.slots)if(s.kind===kind)best=Math.min(best,Math.hypot(s.x-x,s.y-y));
+  return best}
+function kindExists(kind){return kind==="window"?R.wall.some(w=>w.t==="window"):R.surfs.some(sf=>sf.pts.some(p=>p.kind===kind))||R.slots.some(s=>s.kind===kind)}
+function harmony(){
+  const fin=items.filter(i=>!i.part),res=[];
+  for(const th of THEMES){
+    if(th.near){const its=fin.filter(i=>th.near.includes(i.key));if(its.length<2)continue;
+      const ok=its.every(i=>i.state==="slot")&&(()=>{const cx=its.reduce((a,i)=>a+i.x,0)/its.length,cy=its.reduce((a,i)=>a+i.y,0)/its.length;
+        return its.every(i=>Math.hypot(i.x-cx,i.y-cy)<=1.7)})();res.push({t:th.t,ok})}
+    else{const its=fin.filter(i=>th.by.includes(i.key));if(!its.length||!th.k.some(kindExists))continue;
+      const ok=its.every(i=>i.state==="slot"&&th.k.some(k=>distToKind(i.x,i.y,k)<=th.d));res.push({t:th.t,ok})}
+  }
+  const n=res.filter(r=>r.ok).length,f=res.length?n/res.length:1;
+  return{list:res,stars:f>=.8?3:f>=.45?2:1,n,tot:res.length};
+}
+function starStr(n){return"★".repeat(n)+"☆".repeat(3-n)}
+
+// ================= Arredamento: spostare, ruotare, cambiare stile ai mobili =================
+function bTouch(a,b,t=.03){return a.x<b.x+b.w+t&&b.x<a.x+a.w+t&&a.y<b.y+b.d+t&&b.y<a.y+a.d+t&&a.z<b.z+b.h+t&&b.z<a.z+a.h+t}
+function computePieces(){
+  const bs=R.boxes.filter(b=>!b.win),par=bs.map((_,i)=>i),f=i=>par[i]===i?i:(par[i]=f(par[i]));
+  for(let i=0;i<bs.length;i++)for(let j=i+1;j<bs.length;j++)if(bTouch(bs[i],bs[j]))par[f(i)]=f(j);
+  const map=new Map();bs.forEach((b,i)=>{const r=f(i);if(!map.has(r))map.set(r,{boxes:[],opens:[]});map.get(r).boxes.push(b)});
+  const pcs=[...map.values()];
+  pcs.forEach((pc,i)=>{pc.id=i;pc.boxes.forEach(b=>{b.pc=pc;b.c0=b.c0||b.c})});
+  for(const op of R.opens){const b=op.type==="door"?op.boxes[0]:op.type==="drawer"?op.body:op.box;if(b&&b.pc){b.pc.opens.push(op);op.pc=b.pc}}
+  for(const pc of pcs)pieceInfo(pc);
+  return pcs;
+}
+function pieceBB(pc){let x0=1e9,y0=1e9,z0=1e9,x1=-1e9,y1=-1e9,z1=-1e9;for(const b of pc.boxes){x0=Math.min(x0,b.x);y0=Math.min(y0,b.y);z0=Math.min(z0,b.z);x1=Math.max(x1,b.x+b.w);y1=Math.max(y1,b.y+b.d);z1=Math.max(z1,b.z+b.h)}return{x0,y0,z0,x1,y1,z1}}
+function pieceInfo(pc){const q=pieceBB(pc);pc.L=q.x0<.15;pc.Rw=q.y0<.15;pc.mounted=q.z0>.8;
+  pc.noMirror=pc.opens.some(o=>o.type!=="drawer");pc.name=pc.opens[0]&&pc.opens[0].label?pc.opens[0].label.replace(/^(il |lo |la |l'|le |i )/,""):null}
+function pieceSlots(pc){return R.slots.filter(s=>s.owner&&s.owner.pc===pc)}
+function pieceItems(pc){return items.filter(it=>it.slot&&((it.slot.surf&&it.slot.surf.box&&it.slot.surf.box.pc===pc)||(it.slot.owner&&it.slot.owner.pc===pc)))}
+function movePiece(pc,dx,dy){
+  for(const b of pc.boxes){b.x+=dx;b.y+=dy}
+  for(const op of pc.opens){if(op.type==="door"){op.x+=dx;op.fd+=dy}if(op.type==="blanket"){op.x0+=dx;op.x1+=dx;op.bed.x+=dx;op.bed.y+=dy}}
+  for(const s of pieceSlots(pc)){s.x+=dx;s.y+=dy}
+  for(const it of pieceItems(pc)){it.x+=dx;it.y+=dy;if(!it.slot.cont){it.slot.x+=dx;it.slot.y+=dy}}
+  pc.opens.forEach(updOpen);
+}
+const swapDeco=d=>d.t==="fy"?{...d,t:"fx",v0:d.u0,v1:d.u1}:d.t==="fx"?{...d,t:"fy",u0:d.v0,u1:d.v1}:d.t==="rect"?{...d,u0:d.v0,v0:d.u0,u1:d.v1,v1:d.u1}:d.t==="ell"?{...d,u:d.v,v:d.u}:d;
+// specchia sulla diagonale: i mobili liberi ruotano su se stessi, quelli a muro passano all'altra parete
+function mirrorPiece(pc){
+  const q=pieceBB(pc),wall=pc.L||pc.Rw,cx=wall?0:(q.x0+q.x1)/2,cy=wall?0:(q.y0+q.y1)/2;
+  const T=(x,y)=>[cx+(y-cy),cy+(x-cx)];
+  for(const b of pc.boxes){const[nx,ny]=T(b.x,b.y);b.x=nx;b.y=ny;[b.w,b.d]=[b.d,b.w];b.decos=b.decos.map(swapDeco);if(b.surf)b.surf.pts=b.surf.pts.map(p=>({...p,u:p.v,v:p.u}))}
+  for(const op of pc.opens)if(op.type==="drawer")op.axis=op.axis==="x"?"y":"x";
+  for(const s of pieceSlots(pc)){const[nx,ny]=T(s.x,s.y);s.x=nx;s.y=ny}
+  for(const it of pieceItems(pc)){const[nx,ny]=T(it.x,it.y);it.x=nx;it.y=ny;if(!it.slot.cont){it.slot.x=nx;it.slot.y=ny}}
+  pc.opens.forEach(updOpen);pieceInfo(pc);
+}
+const TINTS=[c=>c,c=>mixHex(c,.35),c=>mixHex(c,-.28),c=>"#"+hexRgb(c).map((v,i)=>Math.round(v*.3+[243,240,234][i]*.7).toString(16).padStart(2,"0")).join("")];
+function tintPiece(pc){pc.tint=((pc.tint||0)+1)%TINTS.length;for(const b of pc.boxes)if(b.c0&&b.c0[0]==="#")b.c=TINTS[pc.tint](b.c0)}
+function pieceOK(pc){
+  const q=pieceBB(pc);if(q.x0<-.01||q.y0<-.01||q.x1>N+.01||q.y1>N+.01)return false;
+  for(const b of pc.boxes)for(const o of R.boxes){if(o.pc===pc)continue;
+    if(b.x<o.x+o.w-.02&&o.x<b.x+b.w-.02&&b.y<o.y+o.d-.02&&o.y<b.y+b.d-.02&&b.z<o.z+o.h-.02&&o.z<b.z+b.h-.02)return false}
+  for(const w of R.wall){const near=w.side==="L"?q.x0<.7:q.y0<.7;if(!near)continue;const a0=w.side==="L"?q.y0:q.x0,a1=w.side==="L"?q.y1:q.x1;
+    if(a0<w.a1+.12&&a1>w.a0-.12&&q.z1>w.z0-.15&&q.z0<w.z1+.2)return false}
+  for(const pz of R.puzzles||[]){const p=pz.prop;if(!p)continue;const near=p.side==="L"?q.x0<.7:q.y0<.7;if(!near)continue;const a0=p.side==="L"?q.y0:q.x0,a1=p.side==="L"?q.y1:q.x1;
+    const pa0=p.type==="garland"?p.a0:p.a0,pa1=p.type==="garland"?p.a1:p.a0+p.size,pz0=p.type==="garland"?p.z-.8:p.z0,pz1=p.type==="garland"?p.z+.3:p.z0+p.size;
+    if(a0<pa1&&a1>pa0&&q.z1>pz0&&q.z0<pz1)return false}
+  return true;
+}
+// sposta scatoloni e oggetti sciolti che ora sono sotto un mobile
+function tidyAfterArrange(){
+  for(const c of cartons){if(c.vanish)continue;const hit=()=>R.boxes.some(b=>!b.win&&b.z<1.5&&c.x<b.x+b.w+.1&&b.x<c.x+c.w+.1&&c.y<b.y+b.d+.1&&b.y<c.y+c.d+.1)||cartons.some(o=>o!==c&&!o.vanish&&c.x<o.x+o.w+.1&&o.x<c.x+c.w+.1&&c.y<o.y+o.d+.1&&o.y<c.y+c.d+.1);
+    if(!hit())continue;const ox0=c.x,oy0=c.y;let done=false;
+    for(let rad=.25;rad<6&&!done;rad+=.25)for(let k=0;k<16&&!done;k++){const a=k/16*6.283;c.x=clamp(ox0+Math.cos(a)*rad,.2,N-1.3);c.y=clamp(oy0+Math.sin(a)*rad,.2,N-1.3);if(!hit())done=true}
+    if(!done){c.x=ox0;c.y=oy0}}
+  for(const it of items)if(it.state==="loose"){const[x,y]=freeSpot(it.x,it.y,it);it.x=x;it.y=y}
+}
+// registro delle modifiche, per ritrovare la stanza com'era
+function arrLog(){try{return JSON.parse(store("scatoloni-arr-"+ri)||"[]")}catch(e){return[]}}
+function arrSave(log){store("scatoloni-arr-"+ri,JSON.stringify(log))}
+function arrApply(log){for(const o of log){const pc=R.pieces[o[0]];if(!pc)continue;if(o[1]==="t")movePiece(pc,o[2],o[3]);else if(o[1]==="m")mirrorPiece(pc);else if(o[1]==="c")tintPiece(pc)}tidyAfterArrange()}
+function arrPush(op){const log=arrLog();const l=log[log.length-1];if(op[1]==="t"&&l&&l[0]===op[0]&&l[1]==="t"){l[2]=+(l[2]+op[2]).toFixed(3);l[3]=+(l[3]+op[3]).toFixed(3)}else log.push(op);arrSave(log)}
+
+let ARR=null; // {sel, drag}
+function pickPiece(p){for(let k=lastOrder.length-1;k>=0;k--){const o=lastOrder[k];
+    if(o.kind==="box"&&o.pc&&o.bb&&inBB(p,o.bb))return o.pc;
+    if((o.kind==="door"&&o.op.pc&&o.quad&&pip(p,o.quad))||(o.op&&o.op.pc&&o.op.type==="drawer"&&o.bb&&inBB(p,o.bb)))return o.op.pc}return null}
+function arrDown(p){const pc=pickPiece(p);ARR.sel=pc;ARR.drag=null;arrUI();dirty=true;if(!pc)return false;
+  if(pc.L&&pc.Rw){showToast("Questo mobile sta nell'angolo: puoi cambiarne lo stile");return true}
+  const z=pieceBB(pc).z0,[wx,wy]=inv(p.x,p.y+z*ZU);ARR.drag={pc,wx,wy,ax:0,ay:0,z};SFX.pick();return true}
+function arrMove(p){const d=ARR.drag;if(!d)return;const[wx,wy]=inv(p.x,p.y+d.z*ZU);
+  let tx=Math.round((wx-d.wx)/.25)*.25,ty=Math.round((wy-d.wy)/.25)*.25;if(d.pc.L)tx=0;if(d.pc.Rw)ty=0;
+  const dx=tx-d.ax,dy=ty-d.ay;if(!dx&&!dy)return;
+  movePiece(d.pc,dx,dy);if(pieceOK(d.pc)){d.ax=tx;d.ay=ty;SFX.tick()}else{movePiece(d.pc,-dx,-dy);d.bad=now}dirty=true}
+function arrUp(){const d=ARR.drag;if(!d)return;ARR.drag=null;if(d.ax||d.ay){arrPush([d.pc.id,"t",d.ax,d.ay]);tidyAfterArrange();SFX.drop()}dirty=true}
+function arrRotate(){const pc=ARR&&ARR.sel;if(!pc){showToast("Prima tocca un mobile");return}
+  if(pc.noMirror){showToast("Questo mobile si può solo spostare");return}
+  mirrorPiece(pc);if(!pieceOK(pc)){mirrorPiece(pc);showToast("Non c'è spazio per girarlo");SFX.wrong();return}
+  arrPush([pc.id,"m"]);tidyAfterArrange();SFX.place();dirty=true}
+function arrTint(){const pc=ARR&&ARR.sel;if(!pc){showToast("Prima tocca un mobile");return}tintPiece(pc);arrPush([pc.id,"c"]);SFX.tick();dirty=true}
+function arrReset(){arrSave([]);ARR.sel=null;const o=holder.querySelector(".overlay.side");if(o)o.remove();PANEL=0;loadRoom(ri,false);lookMenu()}
+function arrUI(){const el=document.getElementById("arrSel");if(!el)return;const pc=ARR&&ARR.sel;
+  el.textContent=pc?(pc.L&&pc.Rw?"Mobile nell'angolo: solo stile":pc.mounted?"Mensola: scorre lungo il muro":(pc.L||pc.Rw)?"Mobile a muro: scorre lungo il muro"+(pc.noMirror?"":" · Ruota lo sposta sull'altra parete"):"Mobile libero: trascinalo dove vuoi"):"Tocca un mobile e trascinalo"}
+function drawArrSel(){
+  if(!ARR||!ARR.sel)return;const bb=unionBB(ARR.sel.boxes);if(!bb)return;const bad=ARR.drag&&ARR.drag.bad&&now-ARR.drag.bad<300;
+  ctx.save();ctx.strokeStyle=bad?"#ff3b3b":`rgba(255,190,40,${.65+.35*Math.sin(now/150)})`;ctx.lineWidth=3;ctx.setLineDash([7,5]);
+  ctx.beginPath();ctx.roundRect?ctx.roundRect(bb[0]-5,bb[1]-5,bb[2]-bb[0]+10,bb[3]-bb[1]+10,8):ctx.rect(bb[0]-5,bb[1]-5,bb[2]-bb[0]+10,bb[3]-bb[1]+10);ctx.stroke();ctx.restore()}
 
 // ================= Oggetti modellati in 3D =================
 // Primitive in coordinate locali (unità del mondo). Oggetti da appoggio: origine = centro della base.
@@ -1028,7 +1260,7 @@ function pzAnchor(pz){
 function solvePuzzle(pz){
   pz.solved=true;SFX.win();const a=pzAnchor(pz);sparkle(a.x,a.y,16);puff(a.x,a.y,6);showToast("🧩 "+pz.done);
   if(pz.lock){const op=R.tags[pz.lock];op.target=1;SFX.door(true)}
-  if(pz.reward==="ring"){const src=items.find(i=>i.key===pz.item);const it={key:"ring",M:modelOf("ring"),n:"Anello",ok:["dresser","nightstand","drawer"],s:20,state:"loose",slot:null,plane:"top",bad:false,z:0};
+  if(pz.reward==="ring"){const src=items.find(i=>i.key===pz.item);const it={key:"ring",M:modelOf("ring"),n:"Anello",ok:expandOk(["dresser","nightstand","drawer"]),s:20,state:"loose",slot:null,plane:"top",bad:false,z:0};
     const bx=src&&src.slot?src.slot.x:N/2,by=src&&src.slot?src.slot.y:N/2;const[sx,sy]=freeSpot(bx+.8,by+.9,it);it.x=sx;it.y=sy;
     it.anim={t0:now,dur:600,fx:bx,fy:by,fz:src&&src.slot?src.slot.z+.3:1};it.popT=now+500;items.push(it)}
   updateCount();dirty=true;check();
@@ -1121,10 +1353,15 @@ function lookMenu(after){
   const sw=(k,list)=>`<div class="sws" data-k="${k}">${list.map(c=>`<button class="sw${c?"":" none"}" data-v="${c}" style="background:${c||"#fff"}">${c?"":"✕"}</button>`).join("")}</div>`;
   const seg=(k,list)=>`<div class="seg" data-k="${k}">${list.map(([v,l])=>`<button data-v="${v}">${l}</button>`).join("")}</div>`;
   const o=overlay(`<h2>🎨 Arreda la stanza</h2><div class="set">
+    <div class="row"><div class="lab">🛋 Mobili</div><div class="note" id="arrSel"></div>
+      <div class="seg"><button id="arrRot">↻ Ruota</button><button id="arrTint">🎨 Stile</button><button id="arrReset">↺ Com'era</button></div></div>
     <div class="row"><div class="lab">Colore delle pareti</div>${sw("wall",LOOK.wall)}</div>
     <div class="row"><div class="lab">Tappezzeria</div>${seg("wp",LOOK.wp)}</div>
     <div class="row"><div class="lab">Pavimento</div>${seg("fp",LOOK.fp)}${sw("floor",LOOK.floor)}</div>
-    <div class="row"><div class="lab">Tende</div>${sw("cur",LOOK.cur)}</div><div class="note">Trascina la stanza col dito per vederla meglio.</div></div>`,[["Fatto","primary",()=>{saveLook();after&&after()}]]);
+    <div class="row"><div class="lab">Tende</div>${sw("cur",LOOK.cur)}</div>
+    <div class="note">Trascina la stanza col dito per vederla meglio.</div></div>`,[["Fatto","primary",()=>{ARR=null;saveLook();dirty=true;after&&after()}]]);
+  ARR={sel:null,drag:null};arrUI();
+  o.querySelector("#arrRot").onclick=arrRotate;o.querySelector("#arrTint").onclick=arrTint;o.querySelector("#arrReset").onclick=arrReset;
   o.classList.add("side");
   const card=o.querySelector(".card");const setPanel=w=>{PANEL=w;computeBase();cam={x:home.x,y:home.y,z:1};dirty=true};
   requestAnimationFrame(()=>setPanel(VW>560?card.offsetWidth+20:0));
@@ -1205,7 +1442,7 @@ const COMBOS={
     {a:"lamp_nob",b:"bulb",bn:"Lampadina",bin:"drawer",r:"desklamp"}],
  10:[{a:"mobile_arm",an:"Asta della giostrina",b:"mobile_stars",bn:"Stelline appese",r:"mobile",rn:"Giostrina",rok:["crib"],rs:40},{a:"musicbox_box",an:"Scatola del carillon",b:"ballerina",bn:"Ballerina",bin:"drawer",r:"musicbox"}]
 };
-function newItem(key,n,ok,s,part){return{key,M:modelOf(key),n,ok,s,part:!!part,state:"queue",slot:null,x:0,y:0,z:0,plane:"top",bad:false}}
+function newItem(key,n,ok,s,part){return{key,M:modelOf(key),n,ok:expandOk(ok),s,part:!!part,state:"queue",slot:null,x:0,y:0,z:0,plane:"top",bad:false}}
 // prepara ricette e pezzi; toglie dalla lista gli oggetti che ora vanno ricomposti
 function initCombos(i){
   const recs=(COMBOS[i]||[]).map(r=>({...r,done:false}));R.recipes=recs;R.finalDefs={};R.partNag=0;
@@ -1235,6 +1472,299 @@ function combine(a,b,rec){
   const q=P(base.x,base.y,base.z);puff(q[0],q[1]-10,12);sparkle(q[0],q[1]-24,12);SFX.win();
   showToast(`✨ Ricomposto: ${it.n}!`);if(hint)hint=null;updateCount();dirty=true;check();
 }
+
+// ================= Tre traslochi in più (stanze 11–21) =================
+Object.assign(MODELS,{
+ umbrella:()=>[cyl(0,0,0,.03,.3,"#264653"),cyl(0,0,.25,.13,.55,"#e76f51",{r2:.035,top:"#c4553f"}),cyl(0,0,.8,.012,.08,"#3b2a26"),bx(-.04,0,.86,.1,.03,.03,"#3b2a26")],
+ keybowl:()=>[cyl(0,0,0,.15,.06,"#e9c46a",{r2:.19,top:"#d4a017"}),bx(.03,0,.06,.14,.04,.02,"#adb5bd"),sph(-.06,.02,.08,.04,"#e63946"),bx(-.02,-.05,.06,.1,.03,.02,"#ced4da")],
+ mail:()=>[bx(0,0,0,.34,.24,.03,"#ffffff",[TOP("#e63946",.72,.12,.9,.36)]),bx(.02,.02,.03,.32,.22,.03,"#a8dadc",[TOP("#ffffff",.12,.4,.6,.5)])],
+ boots:()=>[cyl(-.09,-.04,0,.075,.42,"#6b4226",{top:"#3b2a26"}),bx(-.09,.06,0,.15,.22,.1,"#6b4226"),cyl(.11,-.04,0,.075,.42,"#6b4226",{top:"#3b2a26"}),bx(.11,.06,0,.15,.22,.1,"#6b4226")],
+ bag:()=>[bx(0,0,0,.38,.18,.28,"#bc6c25",[FY("#dda15e",.3,.7,.55,.8)]),bx(-.1,0,.28,.04,.04,.12,"#6b4226"),bx(.1,0,.28,.04,.04,.12,"#6b4226"),bx(0,0,.38,.24,.04,.04,"#6b4226")],
+ detergent:()=>[bx(0,0,0,.22,.14,.32,"#4cc9f0",[FY("#ffffff",.15,.85,.35,.7)]),cyl(.05,0,.32,.045,.06,"#f72585")],
+ softener:()=>bottleM("#cdb4db",.3,.09,"#7b2cbf"),
+ iron:()=>[bx(0,0,0,.32,.15,.07,"#e63946",[TOP("#adb5bd",.05,.1,.95,.9)]),bx(-.05,0,.07,.16,.05,.1,"#3b2a26")],
+ clothespins:()=>[cyl(0,0,0,.12,.12,"#90e0ef",{top:"#caf0f8"}),...["#ffb703","#fb8500","#8ecae6","#e63946"].map((c,i)=>bx(-.06+i*.04,0,.1,.025,.04,.08,c))],
+ ironboard:()=>[bx(0,0,.62,1.1,.32,.04,"#a2d2ff",[TOP("#ffffff",.05,.2,.95,.3)]),bx(-.25,0,0,.04,.04,.62,"#6c757d"),bx(.25,0,0,.04,.04,.62,"#6c757d"),bx(0,0,0,.6,.05,.03,"#6c757d")],
+ toolbox:()=>[bx(0,0,0,.44,.2,.22,"#e63946",[FY("#c1121f",.05,.95,.72,.78),FY("#ffd166",.45,.55,.45,.6)]),bx(0,0,.22,.22,.04,.07,"#3b2a26")],
+ drill_body:()=>[bx(-.08,0,0,.08,.08,.16,"#3b2a26"),bx(0,0,.14,.3,.09,.11,"#f9c74f",[FY("#3b2a26",.65,.8,.3,.7)])],
+ drill_bit:()=>[bx(0,0,0,.16,.025,.025,"#adb5bd"),cyl(-.1,0,-.01,.03,.05,"#6c757d")],
+ drill:()=>[bx(-.08,0,0,.08,.08,.16,"#3b2a26"),bx(0,0,.14,.3,.09,.11,"#f9c74f",[FY("#3b2a26",.65,.8,.3,.7)]),bx(.22,0,.18,.16,.025,.025,"#adb5bd")],
+ paint:()=>[cyl(0,0,0,.12,.18,"#dee2e6",{top:"#4361ee"}),cyl(.17,.1,0,.09,.14,"#dee2e6",{top:"#ef476f"}),bx(0,0,.18,.22,.015,.015,"#6c757d")],
+ helmet:()=>[sph(0,0,.06,.17,"#4361ee"),bx(.1,0,.02,.1,.22,.05,"#3b2a26"),bx(-.02,0,.2,.2,.04,.03,"#ffffff")],
+ bike_frame:()=>[bx(0,0,.32,.62,.05,.05,"#e63946"),bx(-.12,0,.32,.05,.05,.34,"#e63946"),bx(.26,0,.32,.05,.05,.34,"#e63946"),bx(-.12,0,.66,.18,.1,.05,"#3b2a26"),bx(.26,0,.66,.05,.36,.05,"#3b2a26")],
+ bike_wheels:()=>[dsk(-.3,0,.26,.25,"#333","y"),dsk(-.3,.01,.26,.19,"#e9ecef","y"),dsk(.3,0,.26,.25,"#333","y"),dsk(.3,.01,.26,.19,"#e9ecef","y")],
+ bike:()=>[dsk(-.36,0,.26,.25,"#333","y"),dsk(-.36,.01,.26,.19,"#e9ecef","y"),dsk(.36,0,.26,.25,"#333","y"),dsk(.36,.01,.26,.19,"#e9ecef","y"),
+   bx(0,.03,.32,.72,.05,.05,"#e63946"),bx(-.12,.03,.32,.05,.05,.34,"#e63946"),bx(.3,.03,.32,.05,.05,.34,"#e63946"),bx(-.12,.03,.66,.18,.1,.05,"#3b2a26"),bx(.3,.03,.66,.05,.36,.05,"#3b2a26")],
+ skateboard:()=>[bx(0,0,.07,.64,.2,.03,"#ff006e",[TOP("#ffbe0b",.2,.2,.8,.8)]),...[[-.2,-.08],[-.2,.08],[.2,-.08],[.2,.08]].map(([x,y])=>dsk(x,y+.03,.04,.04,"#3b2a26","y"))],
+ lantern:()=>[bx(0,0,0,.18,.18,.04,"#3b2a26"),bx(0,0,.04,.14,.14,.22,"#fff3b0",[FY("#ffd166",.2,.8,.2,.8),FXd("#ffd166",.2,.8,.2,.8)]),bx(0,0,.26,.18,.18,.04,"#3b2a26"),bx(0,0,.3,.08,.03,.06,"#3b2a26")],
+ gloves:()=>[bx(-.06,0,0,.12,.22,.04,"#52b788",[TOP("#2d6a4f",.1,.7,.9,.85)]),bx(.08,.03,.04,.12,.22,.04,"#74c69d",[TOP("#2d6a4f",.1,.7,.9,.85)])],
+ bucket:()=>[cyl(0,0,0,.12,.22,"#2a9d8f",{r2:.15,top:"#1d6f65"}),bx(0,0,.22,.3,.015,.015,"#6c757d")],
+ wateringcan:()=>[cyl(0,0,0,.13,.22,"#52b788",{top:"#2d6a4f"}),bx(.2,0,.14,.2,.045,.045,"#52b788"),bx(-.02,0,.22,.14,.03,.08,"#2d6a4f")],
+ seeds:()=>[bx(-.07,0,0,.12,.04,.17,"#9d4edd",[FY("#ffffff",.2,.8,.4,.75)]),bx(.07,.05,0,.12,.04,.17,"#ffd60a",[FY("#ffffff",.2,.8,.4,.75)])],
+ flowerpot:()=>plantM("#e07a5f",.14,.16,"#f28482",.09),
+ birdhouse:()=>[bx(0,0,0,.24,.24,.26,"#bc6c25",[FY("#3b2a26",.38,.62,.45,.72)]),bx(0,0,.26,.3,.3,.05,"#9c2c2c"),bx(0,.13,.1,.06,.06,.02,"#6b4226")],
+ sunglasses:()=>[bx(0,0,0,.32,.1,.025,"#3b2a26"),dsk(-.08,.055,.05,.065,"#264653","y"),dsk(.08,.055,.05,.065,"#264653","y")],
+ jug:()=>[cyl(0,0,0,.1,.28,"#fff3b0",{top:"#ffd166"}),bx(-.12,0,.08,.04,.03,.14,"#fff3b0"),sph(.05,.05,.3,.03,"#90be6d")],
+ horse:()=>[bx(0,0,0,.82,.12,.06,"#bc6c25"),bx(-.2,0,.06,.05,.05,.3,"#e9c46a"),bx(.2,0,.06,.05,.05,.3,"#e9c46a"),bx(0,0,.36,.5,.16,.2,"#e9c46a",[FY("#ffffff",.3,.7,.6,.8)]),
+   bx(.28,0,.5,.13,.12,.28,"#e9c46a"),bx(.36,0,.66,.14,.1,.1,"#e9c46a"),bx(.2,0,.56,.04,.13,.2,"#9c2c2c"),bx(-.28,0,.44,.08,.06,.12,"#9c2c2c")],
+ albums:()=>[bx(0,0,0,.38,.28,.08,"#6d597a",[FXd("#fffaf0",.06,.94,.2,.8)]),bx(.01,0,.08,.36,.27,.08,"#b56576",[FXd("#fffaf0",.06,.94,.2,.8)]),bx(-.01,.01,.16,.37,.28,.07,"#355070",[FXd("#fffaf0",.06,.94,.2,.8)])],
+ cookiejar:()=>[cyl(0,0,0,.12,.2,"#f1faee",{top:"#e9c46a"}),cyl(0,0,.2,.1,.04,"#e9c46a"),sph(0,0,.27,.04,"#bc6c25")],
+ rollingpin:()=>[bx(0,0,.03,.4,.08,.08,"#e9c46a"),bx(-.25,0,.05,.1,.04,.04,"#bc6c25"),bx(.25,0,.05,.1,.04,.04,"#bc6c25")],
+ seaphoto:()=>frameM(.74,.52,"#ffffff","#a2d2ff",[FR("#ffe8a3",.04,.96,.05,.35),FR("#e63946",.12,.26,.35,.7),FR("#4361ee",.34,.48,.35,.7),FR("#ffd60a",.56,.7,.35,.7),FR("#52b788",.78,.92,.35,.7)]),
+ familyphoto:()=>frameM(.6,.5,"#8d6e63","#fde2e4",[FR("#3b2a26",.12,.26,.15,.7),FR("#e76f51",.32,.46,.15,.62),FR("#4361ee",.54,.66,.15,.45),FR("#2a9d8f",.72,.84,.15,.5)])
+});
+["seaphoto","familyphoto"].forEach(k=>WALLM.add(k));
+Object.assign(SIZE,{umbrella:40,keybowl:30,mail:32,boots:40,bag:40,detergent:30,softener:26,iron:32,clothespins:28,ironboard:62,toolbox:42,drill_body:32,drill_bit:22,drill:34,paint:34,helmet:34,
+  bike_frame:52,bike_wheels:56,bike:64,skateboard:46,lantern:28,gloves:28,bucket:32,wateringcan:36,seeds:24,flowerpot:30,birdhouse:32,sunglasses:24,jug:28,horse:56,albums:36,cookiejar:28,rollingpin:34,
+  seaphoto:52,familyphoto:48});
+
+// letto a castello
+{const _b=builder;builder=function(){const r=_b();
+  r.bunk=(x,y,w,d,c,b1,b2)=>{
+    [[x,y],[x+w-.14,y],[x,y+d-.14],[x+w-.14,y+d-.14]].forEach(([a,b])=>r.box(a,b,0,.14,.14,3.1,c));
+    r.box(x+.14,y,.25,w-.28,d,.3,c);r.box(x+.18,y+.1,.55,w-.36,d-.2,.28,"#fffaf2");
+    const p1=r.box(x+.25,y+.3,.83,.8,d-.6,.18,"#ffffff"),k1=r.box(x+1.2,y+.12,.83,w-1.4,d-.24,.08,b1);
+    r.box(x+.14,y,1.9,w-.28,d,.22,c);r.box(x+.18,y+.1,2.12,w-.36,d-.2,.25,"#fffaf2");
+    const p2=r.box(x+.25,y+.3,2.37,.8,d-.6,.18,"#ffffff"),k2=r.box(x+1.2,y+.12,2.37,w-1.4,d-.24,.08,b2);
+    r.box(x+.6,y+d-.1,2.45,w-1.6,.08,.32,c);
+    [p1,k1,p2,k2].forEach(b=>r.surf(b,"bed",.5,.5,{inset:.06}))};
+  return r}}
+
+HOUSES.push(
+ {year:"2028",name:"La casa al mare",story:"Due bambini, tanta sabbia nelle scarpe e il mare dalla finestra. Si ricomincia, con più scatoloni che mai."},
+ {year:"2035",name:"La casa col giardino",story:"I ragazzi crescono e serve spazio: un ingresso vero, una lavanderia, un garage e una serra piena di luce."},
+ {year:"2046",name:"Di nuovo a casa",story:"La casa dei miei adesso è nostra. In soffitta ci sono scatoloni che non apro da trent'anni."}
+);
+ROOMS.push(
+{h:5,name:"Il soggiorno open space",N:8,wall:["#e0f4f1","#d2ece8"],wp:"plain",floor:"#d9c4a5",fp:"wood",
+ cartons:[[4.4,2.0],[3.2,6.6],[5.6,3.2]],
+ items:[I("remote","Telecomando",["coffee","sofa","tvstand"]),I("cushion","Cuscino",["sofa"]),I("books","Libri",["coffee","tvstand","table"]),I("magazines","Riviste",["coffee","sofa"]),
+  I("plates","Piatti",["pensile"]),I("cups","Tazze",["pensile","table","counter"]),I("glasses","Bicchieri",["pensile","table"]),I("pan","Padella",["stove","pensile"]),I("pot","Pentola",["stove","counter"]),
+  I("kettle","Bollitore",["stove","counter"]),I("fruitbowl","Fruttiera",["table","counter"]),I("milk","Latte",["fridgein"]),I("cheese","Formaggio",["fridgein"]),
+  I("seaphoto","Foto della spiaggia",["wall"]),I("map","La solita mappa",["wall"]),I("bigplant","Pianta",["floor"]),I("basil","Basilico",["sill","counter","table"]),I("speaker","Cassa",["tvstand","floor"]),
+  I("tv","Televisore",["tv"]),I("teapot","Teiera",["stove","counter","table"])],
+ build(r){
+  r.window("L",4.6,6.6,2.2,3.9);r.sill("L",4.6);
+  const c=r.counterR(.2,2.0,1.9,"#f8f9fa","#6c757d");row(r,c,"counter",[.25,.75],.5,40);
+  const st=r.stoveR(2.2,1.3,1.9);row(r,st,"stove",[.28,.74],.5,44);
+  r.cabinetR({x:3.7,w:1.3,d:1.2,h:4.0,c:"#f1f3f5",inner:"#dff0f8",shelves:[1.5,2.8],doors:[{hinge:"L"}],kind:"fridgein",cap:40,n:2,label:"il frigorifero",fridge:true});
+  const sp=r.shelfR(.3,3.5,1.8,"#a68a64");row(r,sp,"pensile",[.28,.74],.5,40);
+  const tv=r.box(5.3,.1,0,2.4,1.0,1.0,"#6b705c");r.deco(tv,{t:"fy",u0:.04,u1:.48,w0:.15,w1:.85,c:"#7f8573"});r.deco(tv,{t:"fy",u0:.52,u1:.96,w0:.15,w1:.85,c:"#7f8573"});
+  r.slot(tv,"tv",.5,.5);r.slot(tv,"tvstand",.1,.5);r.slot(tv,"tvstand",.9,.5);
+  const tb=r.table(1.5,2.4,2.2,1.4,1.7,"#c9a77c");row(r,tb,"table",[.2,.5,.8],.5,38);
+  r.rug(2.6,4.4,2.8,2.6,"#f4d6a0");
+  const s=r.sofaL(4.4,2.6,"#7fb7be");col(r,s,"sofa",.4,[.25,.75],40);
+  const ct=r.table(3.0,4.9,1.2,1.4,.85,"#e9c46a");row(r,ct,"coffee",[.3,.7],.5,38);
+ }},
+{h:5,name:"La stanza dei bambini",N:8,wall:["#fff1e6","#fde2cf"],wp:"dots",floor:"#e3b98a",fp:"wood",
+ cartons:[[3.4,3.0],[4.8,4.4],[4.4,6.6]],
+ items:[I("teddy","Il vecchio orsetto",["bed","shelf","chest"]),I("dino","Dinosauro",["shelf","chest","floor","bed"]),I("train","Trenino",["shelf","chest","floor"]),I("car","Macchinina",["floor","shelf","chest"]),
+  I("ball","Pallone",["floor","chest"]),I("blocks","Cubi",["floor","shelf","chest"]),I("crayons","Pastelli",["desk","shelf"]),I("books","Libri",["shelf","desk"]),I("bookrow","Fila di libri",["shelf"]),
+  I("backpack","Zaino",["floor"]),I("backpack","Zaino",["floor"]),I("globe","Mappamondo",["desk","shelf"]),I("nightlight","Lucina",["shelf","desk","sill"]),I("star","Stellina",["wall"]),
+  I("drawing","Disegno",["wall"]),I("puzzle","Puzzle",["floor"]),I("robot","Robot",["shelf","chest","desk","floor"]),I("guitar","Chitarra",["floor"])],
+ build(r){
+  r.window("R",3.0,5.0,2.2,3.9);r.sill("R",3.0);
+  r.rug(2.2,1.8,3,3,"#caffbf",true);
+  r.bunk(0,4.6,3.8,1.8,"#90dbf4","#a2d2ff","#ffafcc");
+  const dk=r.table(5.4,.15,2.2,1.2,1.7,"#f1c27d");row(r,dk,"desk",[.2,.5,.8],.5,40);r.chair(6.0,1.6,"#90dbf4");
+  const pl=r.bookcaseL(.7,2.6,[.3,1.6,2.9],"#ffafcc",3.9);pl.forEach(p=>[.28,.72].forEach(v=>r.slot(p,"shelf",.5,v,40)));
+  const tc=r.box(5.8,6.4,0,1.6,1.1,1.0,"#bde0fe");r.deco(tc,{t:"fy",u0:0,u1:1,w0:.72,w1:.82,c:"#8fb8de"});row(r,tc,"chest",[.25,.75],.5,40);
+ }},
+{h:5,name:"Il terrazzo",N:8,wall:["#fdf0d5","#f5e3bd"],wp:"plain",floor:"#e9d8c4",fp:"tile",
+ cartons:[[2.0,5.6],[5.6,1.4],[3.6,6.4]],
+ items:[I("bigplant","Pianta",["floor"]),I("bigplant","Limone",["floor"]),I("plant","Piantina",["planter","table","sidetable","sill"]),I("basil","Basilico",["planter","table"]),
+  I("flowerpot","Vasetto di fiori",["planter","table","sidetable","sill"]),I("wateringcan","Annaffiatoio",["floor","planter"]),I("lantern","Lanterna",["table","sidetable","floor"]),
+  I("sunglasses","Occhiali da sole",["lounger","table","sidetable"]),I("books","Libri",["lounger","sidetable","table"]),I("towels","Asciugamani",["lounger"]),I("cushion","Cuscino",["lounger"]),
+  I("jug","Caraffa di limonata",["table","sidetable"]),I("glasses","Bicchieri",["table","sidetable"]),I("ball","Pallone",["floor"]),I("clock","Orologio",["wall"]),
+  I("vase","Fiori",["table","sidetable","sill"]),I("floorlamp","Lampada",["floor"])],
+ build(r){
+  r.window("L",1.0,3.0,2.2,3.9);r.sill("L",1.0);
+  const tb=r.table(3.0,2.6,2.0,1.4,1.7,"#ffffff");row(r,tb,"table",[.2,.5,.8],.5,38);
+  r.chair(3.2,4.3,"#2ec4b6");r.chair(4.4,4.3,"#2ec4b6");
+  const lo=r.box(5.8,4.2,0,1.2,2.4,.6,"#f4a261");r.deco(lo,{t:"rect",u0:.1,v0:.05,u1:.9,v1:.95,c:"#f6bd84"});col(r,lo,"lounger",.5,[.2,.5],44);r.box(5.8,6.2,.6,1.2,.4,1.0,"#f4a261");
+  const pl=r.box(.6,0,0,4.2,.8,.8,"#bc6c25");r.deco(pl,{t:"rect",u0:.03,v0:.1,u1:.97,v1:.9,c:"#6b4a33"});row(r,pl,"planter",[.15,.4,.65,.9],.5,40);
+  const bb=r.box(.3,6.5,0,1.0,1.0,1.5,"#3d405b");r.deco(bb,{t:"rect",u0:.1,v0:.1,u1:.9,v1:.9,c:"#22223b"});
+  const sd=r.box(7.0,1.0,0,.8,.8,1.0,"#e9c46a");r.slot(sd,"sidetable",.5,.5);
+ }},
+{h:6,name:"L'ingresso",N:6,wall:["#f2e8cf","#e9dcc0"],wp:"stripe",floor:"#bfa98a",fp:"checker",
+ cartons:[[2.6,2.4],[3.4,4.0]],
+ items:[I("keybowl","Svuotatasche",["console","bench"]),I("mail","Posta",["console","bench"]),I("umbrella","Ombrello",["stand","floor"]),I("boots","Stivali",["shoein","floor"]),
+  I("shoes","Scarpe",["shoein","floor"]),I("slippers","Ciabatte",["shoein","floor"]),I("hat","Cappello",["console","bench"]),I("bag","Borsa",["bench","floor"]),I("scarf","Sciarpa",["bench","shoein"]),
+  I("clock","Orologio",["wall"]),I("plant","Piantina",["console","bench"]),I("phone","Telefono",["console"]),I("mirror","Specchio",["wall"]),I("lamp","Abat-jour",["console"]),I("familyphoto","Foto di famiglia",["wall","console"])],
+ build(r){
+  r.window("R",3.9,5.4,2.2,3.6);
+  const sc=r.cabinetR({x:.5,w:1.8,d:.9,h:1.3,c:"#a68a64",inner:"#7f5539",shelves:[.65],doors:[{hinge:"L",len:.9},{hinge:"R",len:.9}],kind:"shoein",cap:44,n:2,label:"la scarpiera"});
+  r.tag("shoecab",sc.op);r.slot(sc.top,"console",.5,.5);
+  const ct=r.table(0,2.0,.8,1.8,1.6,"#7f5539");col(r,ct,"console",.5,[.25,.75],38);
+  const bn=r.box(0,4.3,0,.8,1.4,.9,"#d4a373");col(r,bn,"bench",.5,[.3,.7],40);
+  const us=r.box(3.0,.15,0,.5,.5,.8,"#264653");r.slot(us,"stand",.5,.5);
+ }},
+{h:6,name:"La lavanderia",N:6,wall:["#e3f2fd","#d6e9f8"],wp:"tile",floor:"#e0e0e0",fp:"tile",
+ cartons:[[2.4,2.6],[3.0,4.3]],
+ items:[I("detergent","Detersivo",["shelf","washer","counter"]),I("softener","Ammorbidente",["shelf","washer","counter"]),I("laundry","Cesto dei panni",["floor"]),I("basket","Cesto",["floor","washer"]),
+  I("iron","Ferro da stiro",["counter","cabinet","shelf"]),I("ironboard","Asse da stiro",["floor"]),I("clothespins","Mollette",["shelf","drawer","counter","cabinet"]),I("towels","Asciugamani",["shelf","cabinet","washer"]),
+  I("socks","Calzini spaiati",["drawer","cabinet"]),I("bucket","Secchio",["floor"]),I("sponge","Spugna",["counter","shelf"]),I("gloves","Guanti",["drawer","shelf","counter"]),I("calendar","Calendario",["wall"])],
+ build(r){
+  const w=r.box(0,.4,0,1.2,1.3,2.0,"#f6f6f6");r.tag("washer",w);r.deco(w,{t:"fx",v0:.25,v1:.75,w0:.2,w1:.65,c:"#a7c0cc"});r.deco(w,{t:"fx",v0:.65,v1:.85,w0:.75,w1:.92,c:"#5c677d"});col(r,w,"washer",.5,[.3,.7],44);
+  const d=r.box(0,1.75,0,1.2,1.3,2.0,"#eeeeee");r.deco(d,{t:"fx",v0:.25,v1:.75,w0:.2,w1:.65,c:"#cfd8dc"});col(r,d,"washer",.5,[.3,.7],44);
+  const sh=r.shelfL(.4,3.4,2.6,"#ffffff");col(r,sh,"shelf",.5,[.2,.5,.8],36);
+  const c=r.counterR(1.9,2.2,1.9,"#90caf9","#eceff1");r.deco(c,{t:"ell",u:.5,v:.45,r:.3,c:"#cfdde2"});row(r,c,"counter",[.15,.85],.5,36);
+  const cb=r.box(4.6,4.2,0,1.0,1.4,1.2,"#b0bec5");col(r,cb,"cabinet",.5,[.3,.7],40);r.drawer(cb,"x",.6,1.05,{n:2,cap:34});
+  r.window("R",4.4,5.7,2.2,3.6);
+ }},
+{h:6,name:"Il garage",N:8,wall:["#dee2e6","#ced4da"],wp:"plain",floor:"#adb5bd",fp:"tile",
+ cartons:[[3.6,3.0],[5.2,4.6],[2.6,5.8]],
+ items:[I("toolbox","Cassetta degli attrezzi",["bench","rack","cabinet"]),I("paint","Barattoli di vernice",["rack","floor"]),I("helmet","Casco",["rack","cabinet","bench"]),
+  I("skateboard","Skateboard",["floor","rack"]),I("ball","Pallone",["floor","rack"]),I("gloves","Guanti da lavoro",["bench","cabinet","drawer"]),I("bucket","Secchio",["floor"]),
+  I("lantern","Lanterna da campeggio",["rack","bench"]),I("wateringcan","Annaffiatoio",["floor","rack"]),I("calendar","Calendario",["wall"]),I("suitcase","Valigia",["floor","rack"]),
+  I("radio","Radio",["bench","rack"]),I("drill","Trapano",["bench","rack","cabinet"]),I("bike","Bicicletta",["floor"])],
+ build(r){
+  const wb=r.table(2.4,.1,3.0,1.2,1.9,"#a68a64");row(r,wb,"bench",[.15,.4,.65,.9],.5,42);
+  r.frame("R",2.5,5.3,2.5,3.9,"#d4a373");
+  const rk=r.bookcaseL(.8,2.8,[.3,1.5,2.7],"#8d99ae",3.9);rk.forEach(p=>[.28,.72].forEach(v=>r.slot(p,"rack",.5,v,42)));
+  const cb=r.box(6.4,.2,0,1.2,1.0,1.6,"#e63946");r.slot(cb,"cabinet",.5,.5);r.drawer(cb,"y",.9,1.4,{n:2,cap:34});
+  r.window("R",5.8,7.4,2.4,3.8);
+ }},
+{h:6,name:"Il giardino d'inverno",N:8,wall:["#e9f5db","#dcefc6"],wp:"grid",floor:"#d8c3a5",fp:"tile",
+ cartons:[[2.4,2.6],[3.2,5.2],[5.6,2.2]],
+ items:[I("bigplant","Pianta",["floor","planter"]),I("bigplant","Ficus",["floor","planter"]),I("plant","Piantina",["planter","shelf","potting","sidetable","sill"]),I("basil","Basilico",["planter","shelf","potting","sill"]),
+  I("flowerpot","Vasetto di fiori",["planter","shelf","potting","sidetable","sill"]),I("wateringcan","Annaffiatoio",["floor","potting"]),I("seeds","Semi",["potting","shelf"]),I("gloves","Guanti",["potting","shelf"]),
+  I("birdhouse","Casetta per uccellini",["shelf","potting","sidetable"]),I("lantern","Lanterna",["sidetable","shelf","floor"]),I("books","Libri",["armchair","sidetable"]),I("cups","Tazze",["sidetable"]),
+  I("cushion","Cuscino",["armchair"]),I("cactus","Cactus",["planter","shelf","potting","sidetable","sill"]),I("vase","Fiori",["sidetable","potting"])],
+ build(r){
+  r.window("L",1.0,3.4,1.5,4.0);r.window("L",4.6,7.0,1.5,4.0);r.window("R",4.2,7.2,1.5,4.0);r.sill("R",4.2);
+  const pl=r.box(0,.9,0,.9,6.4,.8,"#bc6c25");r.deco(pl,{t:"rect",u0:.1,v0:.02,u1:.9,v1:.98,c:"#6b4a33"});col(r,pl,"planter",.5,[.08,.3,.5,.7,.92],40);
+  const pt=r.table(.9,.1,2.6,1.1,1.6,"#a68a64");row(r,pt,"potting",[.2,.5,.8],.5,40);
+  const sh=r.shelfR(.9,3.2,2.6,"#a68a64");row(r,sh,"shelf",[.2,.5,.8],.5,36);
+  const ar=r.armchair(5.6,4.6,"#90be6d");r.slot(ar,"armchair",.5,.5);
+  const sd=r.box(4.6,3.0,0,.9,.9,1.1,"#e9c46a");r.slot(sd,"sidetable",.5,.5);
+ }},
+{h:7,name:"La soffitta",N:8,wall:["#e6ccb2","#ddb892"],wp:"plain",floor:"#9c6644",fp:"wood",
+ cartons:[[2.0,1.8],[2.2,5.8],[4.4,6.4]],
+ items:[I("records","Dischi",["bookcase","chest","table"]),I("camera","Vecchia macchina fotografica",["bookcase","table","chest"]),I("suitcase","Valigia",["floor","wardrobe"]),
+  I("globe","Mappamondo",["bookcase","table"]),I("boardgames","Giochi da tavolo",["bookcase","chest"]),I("albums","Album di foto",["bookcase","table","chest"]),I("horse","Cavallo a dondolo",["floor"]),
+  I("train","Il vecchio trenino",["bookcase","floor","chest"]),I("radio","Vecchia radio",["table","bookcase"]),I("painting","Quadro",["wall"]),I("drawing","Il mio vecchio disegno",["wall"]),
+  I("map","La mappa di sempre",["wall"]),I("lamp","Abat-jour",["table","chest"]),I("dress","Vestito della nonna",["wardin"]),I("hat","Cappello",["wardin","wardrobe","armchair"]),I("photo","Foto",["wall","table","bookcase"])],
+ build(r){
+  const wd=r.cabinetR({x:.4,w:2.2,d:1.1,h:3.4,c:"#7f5539",inner:"#5e3b23",shelves:[1.4,2.4],doors:[{hinge:"L",len:1.1},{hinge:"R",len:1.1}],kind:"wardin",cap:46,n:2,label:"il vecchio armadio"});
+  r.tag("oldward",wd.op);r.slot(wd.top,"wardrobe",.5,.5);
+  const tr=r.box(0,3.2,0,1.0,1.6,1.0,"#a44a3f");r.deco(tr,{t:"fx",v0:0,v1:1,w0:.7,w1:.8,c:"#7a2e26"});col(r,tr,"chest",.5,[.3,.7],40);
+  const bk=r.bookcaseR(3.2,2.2,[.3,1.5,2.7],"#6f4518",3.9);bk.forEach(p=>[.28,.72].forEach(u=>r.slot(p,"bookcase",u,.5,42)));
+  const ar=r.armchair(5.8,4.6,"#b56576");r.slot(ar,"armchair",.5,.5);
+  const tb=r.table(3.0,4.2,1.6,1.2,1.6,"#9c6644");row(r,tb,"table",[.3,.7],.5,38);
+  r.window("R",5.8,7.4,2.4,3.6);r.rug(2.6,3.0,2.6,2.4,"#c9a07a");
+ }},
+{h:7,name:"La grande cucina",N:8,wall:["#fef3e2","#fbe6c6"],wp:"tile",floor:"#d9cbb3",fp:"checker",
+ cartons:[[1.0,5.6],[3.2,5.6],[6.4,3.0]],
+ items:[I("clock","Orologio",["wall"]),I("recipe","Ricettario della nonna",["counter","pensile"]),I("cookiejar","Barattolo dei biscotti",["counter","pensile","table"]),I("rollingpin","Mattarello",["counter","pensile"]),
+  I("bread","Pane",["counter","table"]),I("butter","Burro",["fridgein"]),I("milk","Latte",["fridgein"]),I("eggs","Uova",["fridgein","counter"]),I("cheese","Formaggio",["fridgein"]),
+  I("plates","Piatti",["pensile"]),I("bowls","Ciotole",["pensile","table"]),I("cups","Tazze",["pensile","table","counter"]),I("pan","Padella",["stove","pensile"]),I("pot","Pentola",["stove","counter"]),
+  I("salt","Sale",["counter","pensile","table"]),I("pepper","Pepe",["counter","pensile","table"]),I("fruitbowl","Fruttiera",["table","counter"]),I("coffeemaker","Macchina del caffè",["counter"])],
+ build(r){
+  const c0=r.counterR(.2,1.6,1.9,"#6b9080","#f6f1e7");row(r,c0,"counter",[.3,.7],.5,40);
+  const st=r.stoveR(1.8,1.3,1.9);row(r,st,"stove",[.28,.74],.5,44);
+  const c1=r.counterR(3.1,1.8,1.9,"#6b9080","#f6f1e7");row(r,c1,"counter",[.25,.75],.5,40);
+  r.cabinetR({x:5.3,w:1.4,d:1.25,h:4.2,c:"#f7f7f7",inner:"#dff0f8",shelves:[1.5,2.8],doors:[{hinge:"L"}],kind:"fridgein",cap:40,n:2,label:"il frigorifero",fridge:true});
+  const s1=r.shelfR(.3,3.4,1.5,"#a68a64");row(r,s1,"pensile",[.28,.72],.5,40);const s2=r.shelfR(3.2,3.4,1.6,"#a68a64");row(r,s2,"pensile",[.28,.72],.5,40);
+  const is=r.box(2.2,3.4,0,2.8,1.4,1.7,"#6b9080");r.deco(is,{t:"fy",u0:.04,u1:.48,w0:.15,w1:.85,c:"#7fa391"});r.deco(is,{t:"fy",u0:.52,u1:.96,w0:.15,w1:.85,c:"#7fa391"});
+  const it=r.box(2.1,3.3,1.7,3.0,1.6,.12,"#f6f1e7");row(r,it,"counter",[.2,.5,.8],.5,40);
+  const tb=r.table(5.4,5.2,1.8,1.4,1.7,"#b07d62");row(r,tb,"table",[.25,.75],.5,38);r.chair(5.6,6.8,"#f2c25e");r.chair(6.6,6.8,"#f2c25e");
+  r.window("L",3.0,5.2,2.0,3.8);r.sill("L",3.0);
+ }},
+{h:7,name:"Lo studio di papà",N:8,wall:["#e9ecef","#dee2e6"],wp:"grid",floor:"#8d6e63",fp:"wood",
+ cartons:[[3.6,3.6],[2.4,6.2],[4.4,6.4]],
+ items:[I("keyboard","Tastiera",["desk"]),I("mouse","Mouse",["desk"]),I("books","Libri",["bookcase","desk"]),I("books","Libri",["bookcase","desk"]),I("bookrow","Fila di libri",["bookcase"]),
+  I("binders","Raccoglitori",["bookcase","desk","cabinet"]),I("trophy","Coppa",["bookcase","desk","cabinet"]),I("diploma","Diploma",["wall"]),I("weddingphoto","Foto del matrimonio",["wall","bookcase","desk"]),
+  I("globe","Mappamondo",["bookcase","cabinet","desk"]),I("pencup","Portapenne",["desk","cabinet","drawer"]),I("mug","Tazza",["desk","cabinet","sidetable"]),I("headphones","Cuffie",["desk","bookcase","cabinet"]),
+  I("printer","Stampante",["cabinet","floor"]),I("bigplant","Pianta",["floor"]),I("magazines","Riviste",["sidetable","armchair"]),I("monitor","Monitor",["monitor"]),I("desklamp","Lampada",["desk","cabinet"])],
+ build(r){
+  r.rug(2.6,3.2,3,3.2,"#a3b18a");
+  const dk=r.table(1.0,.15,3.4,1.8,1.9,"#5d4037");r.slot(dk,"monitor",.45,.28);r.slot(dk,"desk",.45,.8);r.slot(dk,"desk",.1,.4);r.slot(dk,"desk",.85,.3);
+  r.chair(2.3,2.5,"#37474f");
+  const cab=r.box(4.6,.15,0,1.0,1.0,1.2,"#5d4037");r.slot(cab,"cabinet",.5,.5);r.drawer(cab,"y",.55,1.0,{n:2,cap:28});
+  const pl=r.bookcaseL(2.8,2.6,[.3,1.6,2.9],"#4e342e",4.2);pl.forEach(p=>[.28,.72].forEach(v=>r.slot(p,"bookcase",.5,v,42)));
+  const ar=r.armchair(5.8,4.4,"#7f5539");r.slot(ar,"armchair",.5,.5);
+  const sd=r.box(6.3,6.3,0,.8,.8,1.0,"#5d4037");r.slot(sd,"sidetable",.5,.5);
+  r.window("R",5.8,7.4,2.2,3.8);r.sill("R",5.8);
+ }},
+{h:7,name:"La mia vecchia cameretta",N:8,wall:["#fcdccb","#f5cab6"],wp:"stripe",floor:"#dcab7b",fp:"wood",
+ cartons:[[3.0,2.6],[4.4,3.8],[3.4,6.6]],
+ items:[I("teddy","Il vecchio orsetto",["crib","shelf","armchair"]),I("drawing","Il mio primo disegno",["wall"]),I("map","La mappa di sempre",["wall"]),I("bottle","Biberon",["changing"]),
+  I("cream","Crema",["changing","shelf","drawer"]),I("diapers","Pannolini",["changing","drawer","floor"]),I("rattle","Sonaglino",["crib","changing","shelf"]),I("bunny","Coniglietto",["crib","shelf","armchair"]),
+  I("books","Favole",["shelf","changing","armchair"]),I("nightlight","Lucina",["shelf","changing","sill"]),I("train","Il vecchio trenino",["shelf","floor"]),I("dino","Dinosauro",["shelf","floor","crib"]),
+  I("blocks","Cubi",["floor","shelf"]),I("star","Stellina",["wall"]),I("moon","Luna",["wall"]),I("socks","Calzini",["drawer"]),I("musicbox","Carillon",["shelf","sill","changing"])],
+ build(r){
+  r.window("R",3.2,5.2,2,3.8);r.sill("R",3.2);
+  r.rug(2.4,2.2,3,3,"#f8bdb6",true);
+  const m=r.crib(0,4.6,3.0,1.8);row(r,m,"crib",[.25,.5,.75],.5,42);
+  const ch=r.box(5.4,.1,0,2.2,1.2,1.8,"#ffffff");r.deco(ch,{t:"rect",u0:.05,v0:.1,u1:.95,v1:.9,c:"#bfe2f2"});row(r,ch,"changing",[.2,.5,.8],.5,38);r.drawer(ch,"y",.9,1.45,{n:2,cap:38});
+  const sh=r.shelfL(.8,2.8,2.8,"#f6aba4");col(r,sh,"shelf",.5,[.2,.5,.8],40);const sh2=r.shelfL(.8,3.9,2.8,"#f6aba4");col(r,sh2,"shelf",.5,[.2,.5,.8],36);
+  const ar=r.armchair(5.8,4.8,"#ffc8dd");r.slot(ar,"armchair",.5,.5);
+ }}
+);
+Object.assign(PUZZLES,{
+ 11:{clues:{seaphoto:"Nella foto della spiaggia ci sono quattro ombrelloni. Da sinistra: rosso, blu, giallo e verde."},
+  list:[{type:"bulbs",title:"Le lucine del soggiorno",desc:"Sopra il tavolo c'è una ghirlanda di lucine spente. Avvita le lampadine nell'ordine giusto.",colors:["rosso","blu","giallo","verde","viola"],answer:["rosso","blu","giallo","verde"],
+   prop:{type:"garland",side:"L",a0:.6,a1:3.6,z:4.5,n:4},hint:"Guarda la foto della spiaggia: i colori hanno un ordine.",done:"Il soggiorno si illumina!"}]},
+ 12:{clues:{crayons:"Sulla scatola dei pastelli i fratelli hanno disegnato un grande segno +."},
+  list:[{type:"tiles",title:"Il segreto dei fratelli",desc:"Sulla parete c'è un riquadro di 9 piastrelle che si girano. Forma il simbolo segreto.",answer:[0,1,0,1,1,1,0,1,0],prop:{type:"tiles",side:"R",a0:.6,z0:2.4,size:1.05},
+   hint:"I bambini lasciano simboli segreti sulle loro cose.",done:"Le piastrelle brillano: club segreto aperto!"}]},
+ 13:{clues:{books:"Sul segnalibro: «Tramonto stasera alle 7:45. Non perderlo!»"},
+  list:[{type:"clock",title:"L'ora del tramonto",desc:"Regola l'orologio del terrazzo sull'ora del tramonto.",answer:[7,45],item:"clock",needPlace:"Prima appendi l'orologio al muro.",
+   hint:"Qualcuno ha lasciato un segnalibro in un libro.",done:"Il sole tocca il mare. Che spettacolo!"}]},
+ 14:{clues:{keybowl:"Sul portachiavi c'è un'etichetta: «Scarpiera: 3 - 1 - 8»."},
+  list:[{type:"code",title:"La scarpiera",desc:"La scarpiera ha un lucchetto a 3 cifre.",n:3,answer:"318",lock:"shoecab",
+   hint:"Le chiavi hanno sempre un'etichetta.",done:"Click! La scarpiera si apre."}]},
+ 15:{clues:{detergent:"Sul flacone: «Per i capi delicati, lava a 30°»."},
+  list:[{type:"dial",title:"La lavatrice",desc:"Ci sono solo capi delicati: gira la manopola sulla temperatura giusta.",options:["20°","30°","40°","60°","90°"],answer:"30°",box:"washer",
+   hint:"Leggi l'etichetta del detersivo.",done:"La lavatrice parte, piano piano."}]},
+ 16:{clues:{helmet:"Dentro il casco c'è un'etichetta: «Combinazione della cassetta: 7 3 5 1»."},
+  list:[{type:"code",title:"La cassetta degli attrezzi",desc:"La cassetta ha una serratura a 4 cifre.",n:4,answer:"7351",item:"toolbox",needPlace:"Prima metti la cassetta degli attrezzi al suo posto.",
+   hint:"Chi va in bici scrive i numeri importanti nel casco.",done:"Si apre! Dentro c'è tutto quello che serve."}]},
+ 17:{clues:{seeds:"Sulle bustine dei semi, in ordine di semina: viola, giallo, rosso e verde."},
+  list:[{type:"bulbs",title:"Le lucine della serra",desc:"Lungo la parete c'è una ghirlanda di lucine. Mettile nell'ordine giusto.",colors:["viola","giallo","rosso","verde","blu"],answer:["viola","giallo","rosso","verde"],
+   prop:{type:"garland",side:"R",a0:.6,a1:3.4,z:4.5,n:4},hint:"Le bustine dei semi hanno un ordine di semina.",done:"La serra brilla come una lanterna!"}]},
+ 18:{clues:{albums:"Sulla copertina dell'album: «Estate 1997 – la combinazione dell'armadio è l'anno di questa estate»."},
+  list:[{type:"code",title:"Il vecchio armadio",desc:"Il vecchio armadio è chiuso con un lucchetto a 4 cifre.",n:4,answer:"1997",lock:"oldward",
+   hint:"Gli album di foto hanno sempre una data.",done:"Click! L'armadio si apre, con un profumo di naftalina."}]},
+ 19:{clues:{recipe:"Biscotti della nonna: «Sfornare alle 8 e un quarto, non un minuto di più»."},
+  list:[{type:"clock",title:"I biscotti della nonna",desc:"Regola l'orologio sull'ora giusta per sfornare.",answer:[8,15],item:"clock",needPlace:"Prima appendi l'orologio al muro.",
+   hint:"Il ricettario della nonna dice tutto.",done:"Profumo di biscotti in tutta la casa!"}]},
+ 20:{clues:{trophy:"Sulla coppa: «Torneo di scacchi – primo premio, 1989»."},
+  list:[{type:"code",title:"Il computer di papà",desc:"Il computer chiede un PIN di 4 cifre.",n:4,answer:"1989",item:"monitor",needPlace:"Prima metti il monitor sulla scrivania.",
+   hint:"Papà usava sempre l'anno della sua vittoria più bella.",done:"Accesso consentito! Sullo schermo c'è una foto di famiglia."}]},
+ 21:{clues:{books:"Sull'ultima pagina delle favole, la ninna nanna che cantava la nonna: Do – Mi – Sol – Mi."},
+  list:[{type:"melody",title:"Il carillon",desc:"Suona la ninna nanna di famiglia sul carillon.",keys:["Do","Re","Mi","Fa","Sol","La"],answer:["Do","Mi","Sol","Mi"],item:"musicbox",needPlace:"Prima sistema il carillon.",
+   hint:"Le favole finiscono sempre con una canzone.",done:"Il carillon suona e la nipotina si addormenta."}]}
+});
+Object.assign(COMBOS,{
+ 11:[{a:"tv_panel",an:"Schermo della TV",b:"tv_foot",bn:"Piede della TV",r:"tv"},{a:"teapot_body",an:"Teiera senza coperchio",b:"teapot_lid",bn:"Coperchio della teiera",r:"teapot"}],
+ 12:[{a:"robot_body",an:"Corpo del robot",b:"robot_head",bn:"Testa del robot",r:"robot"},{a:"guitar_body",an:"Cassa della chitarra",b:"guitar_neck",bn:"Manico della chitarra",r:"guitar"}],
+ 13:[{a:"vase_empty",an:"Vaso vuoto",b:"flowerbunch",bn:"Mazzo di fiori",r:"vase"},{a:"floorlamp_pole",an:"Asta della lampada",b:"floorlamp_shade",bn:"Paralume grande",r:"floorlamp"}],
+ 14:[{a:"mirror_frame",an:"Cornice dello specchio",b:"mirror_glass",bn:"Vetro dello specchio",bin:"shoein",r:"mirror"},{a:"abatbase",an:"Base dell'abat-jour",b:"abatshade",bn:"Paralume",r:"lamp"}],
+ 16:[{a:"drill_body",an:"Trapano senza punta",b:"drill_bit",bn:"Punta del trapano",r:"drill"},{a:"bike_frame",an:"Telaio della bici",b:"bike_wheels",bn:"Ruote della bici",r:"bike"}],
+ 17:[{a:"cactus_plant",an:"Cactus senza vaso",b:"pot_empty",bn:"Vasetto",r:"cactus"},{a:"vase_empty",an:"Vaso vuoto",b:"flowerbunch",bn:"Mazzo di fiori",r:"vase"}],
+ 18:[{a:"frame_empty",an:"Cornice vuota",b:"photo_print",bn:"Vecchia fotografia",bin:"wardin",r:"photo"}],
+ 19:[{a:"moka_base",an:"Base della moka",b:"coffee",bn:"Caffè macinato",bin:"fridgein",r:"moka_filled",rn:"Moka col caffè"},{a:"moka_filled",b:"moka_top",bn:"Parte alta della moka",r:"moka",rn:"Moka",rok:["stove","counter"]},
+    {a:"coffeemaker_body",an:"Macchina del caffè senza caraffa",b:"carafe",bn:"Caraffa",r:"coffeemaker"}],
+ 20:[{a:"monitor_panel",an:"Schermo del monitor",b:"monitor_stand",bn:"Base del monitor",r:"monitor"},{a:"lampbase",an:"Base della lampada",b:"lampshade",bn:"Paralume",r:"lamp_nob",rn:"Lampada senza lampadina"},
+    {a:"lamp_nob",b:"bulb",bn:"Lampadina",bin:"drawer",r:"desklamp"}],
+ 21:[{a:"mobile_arm",an:"Asta della giostrina",b:"mobile_stars",bn:"Stelline appese",r:"mobile",rn:"Giostrina",rok:["crib"],rs:40},{a:"musicbox_box",an:"Scatola del carillon",b:"ballerina",bn:"Ballerina",bin:"drawer",r:"musicbox"}]
+});
+
+THEMES.push(
+ {near:["keybowl","mail","phone"],t:"Chiavi e posta pronte all'uscita"},
+ {near:["detergent","softener"],t:"Detersivi vicini"},
+ {near:["toolbox","drill","gloves"],t:"Attrezzi tutti insieme"},
+ {near:["seeds","gloves","wateringcan"],t:"Tutto per seminare"},
+ {near:["cookiejar","rollingpin","recipe"],t:"Angolo dei dolci della nonna"},
+ {near:["sunglasses","towels","cushion"],t:"Pronti per prendere il sole"},
+ {near:["bike","helmet"],t:"Bici e casco insieme"},
+ {near:["iron","ironboard"],t:"Ferro vicino all'asse da stiro"},
+ {near:["albums","camera","records","photo"],t:"I ricordi tutti nello stesso angolo"},
+ {near:["horse","train"],t:"I vecchi giocattoli insieme"}
+);
+THEMES.find(t=>t.near&&t.near.includes("shoes")).near.push("boots");
 function bboxOf(o){
   if(o.kind==="item"&&o.it.rect){const r=o.it.rect;return[r[0],r[1],r[0]+r[2],r[1]+r[3]]}
   let a=1e9,b=1e9,c=-1e9,e=-1e9;
@@ -1372,6 +1902,7 @@ function draw(){
   // oggetti coperti dai mobili: si vedono in trasparenza (e si possono prendere toccandoli)
   for(const o of order){if(o.kind!=="item")continue;const it=o.it,s=it.slot;if(s&&s.owner&&s.owner.type==="door"&&s.owner.p<.5)continue;
     const p=o.p,sp=P(p.x+(it.plane==="L"?.01:0),p.y+(it.plane==="R"?.01:0),p.z);ctx.save();ctx.globalAlpha=.32;drawItemAt(it,sp[0],sp[1],it.plane,1,null,1);ctx.restore()}
+  if(hint&&hint.slot&&!hint.slot.cont)drawMark({...hint.slot,cap:Math.max(30,hint.it?hint.it.s:30),item:null});
   if(hint&&hint.op){const bb=opBB(hint.op);if(bb){const a=.5+.5*Math.sin(now/120);ctx.save();ctx.strokeStyle=`rgba(255,200,60,${a})`;ctx.lineWidth=4;ctx.setLineDash([8,6]);
     ctx.beginPath();ctx.roundRect?ctx.roundRect(bb[0]-6,bb[1]-6,bb[2]-bb[0]+12,bb[3]-bb[1]+12,10):ctx.rect(bb[0]-6,bb[1]-6,bb[2]-bb[0]+12,bb[3]-bb[1]+12);ctx.stroke();ctx.restore()}}
   if(drag&&!drag.pending){
@@ -1379,10 +1910,11 @@ function draw(){
     if(t){const q=P(t.x+(t.plane==="L"?.01:0),t.y+(t.plane==="R"?.01:0),t.z);drawItemAt(drag.it,q[0],q[1],t.plane,1,null,.45)}
     ctx.save();ctx.shadowColor="rgba(60,30,60,.35)";ctx.shadowBlur=12;ctx.shadowOffsetY=10;
     drawItemAt(drag.it,drag.bx,drag.by,"top",1.15,null);ctx.restore()}
+  drawArrSel();
   drawFX();
 }
 function opMoving(){return R&&R.opens.some(o=>o.p!==o.target)}
-function animating(){return drag||hint||pinch||FX.length||opMoving()||items.some(i=>i.anim||i.popT||(i.flash&&now-i.flash<700))||cartons.some(c=>c.vanish||c.busy||(c.open!=null&&now-c.open<400)||(c.bump&&now-c.bump<280))}
+function animating(){return(ARR&&ARR.sel)||drag||hint||pinch||FX.length||opMoving()||items.some(i=>i.anim||i.popT||(i.flash&&now-i.flash<700))||cartons.some(c=>c.vanish||c.busy||(c.open!=null&&now-c.open<400)||(c.bump&&now-c.bump<280))}
 function paused(){return document.hidden||!!holder.querySelector(".overlay")}
 let lastT=0,lastStat=0;
 function frame(t){
@@ -1452,14 +1984,15 @@ function findTarget(it,bx,by){
   for(const s of R.slots){if((s.item&&s.item!==it)||!slotOn(s)||!fits(it,s))continue;const c=slotCenter(s);const d=Math.hypot(c[0]-cx,c[1]-cy);if(d<bd){bd=d;best=s}}
   return best;
 }
-const ptrs=new Map();let pinch=null,pan=null,lastTap={t:0,x:0,y:0};
+let itemTap={};const ptrs=new Map();let pinch=null,pan=null,lastTap={t:0,x:0,y:0};
 cv.addEventListener("pointerdown",e=>{
   e.preventDefault();const s=ps(e);ptrs.set(e.pointerId,s);
   if(ptrs.size===2&&!drag){pan=null;const[a,b]=[...ptrs.values()];const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
     pinch={d:Math.hypot(a.x-b.x,a.y-b.y)||1,z:cam.z,w:toWorld(mid)};return}
   if(ptrs.size>1)return;
   const p=toWorld(s);
-  if(!finished){
+  if(ARR){if(arrDown(p)){cv.setPointerCapture(e.pointerId);return}}
+  else if(!finished){
     const it=pickItem(p);
     if(it){timerOn=true;cv.setPointerCapture(e.pointerId);
       const r=it.rect,bx=it.plane==="top"&&it.sb?it.sb[0]:r[0]+r[2]/2,by=it.plane==="top"&&it.sb?it.sb[1]:r[1]+r[3]*.5+it.s*.5;
@@ -1477,17 +2010,22 @@ cv.addEventListener("pointermove",e=>{
   if(pinch&&ptrs.size>=2){const[a,b]=[...ptrs.values()];const d=Math.hypot(a.x-b.x,a.y-b.y),mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
     cam.z=clamp(pinch.z*d/pinch.d,1,4);const z=Z();cam.x=pinch.w.x-(mid.x-VW/2)/z;cam.y=pinch.w.y-(mid.y-VH/2)/z;clampCam();dirty=true;return}
   const p=toWorld(s);
+  if(ARR&&ARR.drag){arrMove(p);return}
   if(drag&&drag.pending){if(Math.hypot(s.x-drag.sx0,s.y-drag.sy0)<8)return;const it=drag.it;drag.pending=false;
     if(it.slot){it.slot.item=null;it.slot=null}it.state="drag";it.anim=null;it.bad=false;SFX.pick();}
   if(drag){drag.bx=p.x+drag.dx;drag.by=p.y+drag.dy;const cb=findCombo(drag.it,drag.bx,drag.by);if(cb&&(!drag.combo||drag.combo.o!==cb.o))SFX.ui();drag.combo=cb;
-    const t=cb?null:findTarget(drag.it,drag.bx,drag.by);if(t!==drag.target&&t)SFX.ui();drag.target=t;dirty=true;return}
+    const t=cb?null:findPlace(drag.it,drag.bx,drag.by);if(t!==drag.target&&t)SFX.ui();drag.target=t;dirty=true;return}
   if(pan){const z=Z();cam.x=pan.cx-(s.x-pan.sx)/z;cam.y=pan.cy-(s.y-pan.sy)/z;clampCam();dirty=true;return}
   if(e.pointerType==="mouse"&&R){const h=pickItem(p);const c=h?null:(pickCarton(p)||pickOpen(p));if(h!==hover){hover=h;dirty=true}cv.style.cursor=h?"grab":c?"pointer":(cam.z>1?"move":"default")}
 });
 function ptrUp(e){
   ptrs.delete(e.pointerId);
   if(pinch){if(ptrs.size<2)pinch=null;pan=null;return}
-  if(drag&&drag.pending){const it=drag.it;drag=null;tapItem(it);dirty=true;return}
+  if(ARR&&ARR.drag){arrUp();return}
+  if(drag&&drag.pending){const it=drag.it;drag=null;dirty=true;
+    if(itemTap.it===it&&now-itemTap.t<350){clearTimeout(itemTap.to);itemTap={};rotateItem(it)}
+    else{clearTimeout(itemTap.to);itemTap={it,t:now,to:setTimeout(()=>{itemTap={};tapItem(it);dirty=true},330)}}
+    return}
   if(drag)endDrag();pan=null;
 }
 cv.addEventListener("pointerup",ptrUp);cv.addEventListener("pointercancel",ptrUp);
@@ -1500,7 +2038,9 @@ document.getElementById("zFit").onclick=()=>{cam.z=1;cam.x=home.x;cam.y=home.y;c
 function endDrag(){
   if(!drag)return;const it=drag.it,t=drag.target;
   if(drag.combo){const{o,rec}=drag.combo;drag=null;combine(it,o,rec);return}
-  if(it.part&&!t){const c=[it.rect?it.rect[0]+it.rect[2]/2:drag.bx,drag.by-it.s*.45];if(R.slots.some(s=>!s.item&&Math.hypot(slotCenter(s)[0]-c[0],slotCenter(s)[1]-c[1])<50))showToast(`${it.n}: sembra incompleto… uniscilo a un altro pezzo`)}
+  if(it.part&&(R.partDrop=(R.partDrop||0)+1)<=3)showToast(`${it.n}: sembra incompleto… uniscilo a un altro pezzo`);
+  const floorDrop=t&&t.surf===FLOOR&&!allowed(it,t);
+  if(floorDrop){Object.assign(it,{state:"loose",slot:null,x:t.x,y:t.y,z:0,plane:"top"});SFX.drop();if(hint&&hint.it===it)hint=null;drag=null;dirty=true;check();return}
   if(t&&RULE.errs&&!allowed(it,t)){
     errors++;it.flash=now;SFX.wrong();
     const[sx,sy]=freeSpot(clamp(t.x,.6,N-.6)+.7,clamp(t.y,.6,N-.6)+.7,it);
@@ -1511,7 +2051,7 @@ function endDrag(){
     if(errors>=RULE.errs)setTimeout(()=>lose("errs"),450);
     return;
   }
-  if(t){it.state="slot";it.slot=t;t.item=it;it.x=t.x;it.y=t.y;it.z=t.z;it.plane=t.plane;it.popT=now;SFX.place();
+  if(t){const s=t.cont?t:Object.assign({},t);it.state="slot";it.slot=s;s.item=it;it.x=s.x;it.y=s.y;it.z=s.z;it.plane=s.plane;it.popT=now;SFX.place();
     const q=P(t.x,t.y,t.z);sparkle(q[0],q[1]-it.s*.6,4)}
   else{const[fx,fy]=inv(drag.bx,drag.by);
     if(fx>-.2&&fy>-.2&&fx<N+.2&&fy<N+.2){const[sx,sy]=freeSpot(fx,fy,it);it.state="loose";it.x=sx;it.y=sy;it.z=0;it.plane="top";SFX.drop()}
@@ -1541,20 +2081,26 @@ function lose(kind){
     [["Riprova la stanza","primary",()=>loadRoom(ri,false)],["Impostazioni","",()=>settingsMenu(()=>loadRoom(ri,false))]]);
 }
 function win(){
-  SFX.win();
+  SFX.win();const h=harmony(),best=+(store("scatoloni-stars-"+ri)||0);if(h.stars>best)store("scatoloni-stars-"+ri,String(h.stars));
+  if(R.improve&&h.stars<=R.improve){finished=false;showToast(`⭐ ${starStr(h.stars)}  ·  ${h.n}/${h.tot} tocchi di armonia`);return}
+  R.improve=0;
   const extra=(RULE.time?`Tempo rimasto: ${fmtTime(timeLeft)}`:"")+(RULE.time&&RULE.errs?" · ":"")+(RULE.errs?`Errori: ${errors}/${RULE.errs}`:"");
-  if(ri<ROOMS.length-1){
-    overlay(`<div class="big">✨</div><h2>${room.name}: tutto a posto!</h2><p>Ogni oggetto ha trovato il suo posto.</p>${extra?`<p class="how">${extra}</p>`:""}`,[["Prossima stanza","primary",()=>loadRoom(ri+1)]]);
-  }else{
-    overlay(`<div class="big">🧸</div><h2>Fine</h2><p>Cinque case, undici stanze, tanti scatoloni.<br>Il vecchio orsetto adesso ha un nuovo padrone.</p>`,[["Rigioca dall'inizio","primary",()=>loadRoom(0)]]);
-  }
+  const list=h.tot?`<div class="harm">${h.list.map(r=>`<div class="${r.ok?"ok":""}">${r.ok?"✔":"○"} ${r.t}</div>`).join("")}</div>`:"";
+  const stars=R.creative?"":`<div class="stars">${starStr(h.stars)}</div>`;
+  const last=ri>=ROOMS.length-1;
+  const btn=R.creative?[["Scegli un'altra stanza","primary",roomsMenu]]:[[last?"Fine":"Prossima stanza","primary",()=>last?theEnd():loadRoom(ri+1)]];
+  if(h.stars<3&&!R.creative)btn.push(["Migliora le stelle","",()=>{finished=false;R.improve=h.stars;dirty=true;showToast("Sposta gli oggetti per dare più armonia. Poi 🏠 per proseguire")}]);
+  overlay(`<div class="big">✨</div><h2>${room.name}: tutto a posto!</h2>${stars}${R.creative?"<p>Arredata come piace a te.</p>":list}${extra?`<p class="how">${extra}</p>`:""}`,btn);
 }
+function theEnd(){overlay(`<div class="big">🧸</div><h2>Fine</h2><p>${ENDING}</p>`,[["Rigioca dall'inizio","primary",()=>loadRoom(0)]])}
 function roomsMenu(){
   const mx=parseInt(store("scatoloni3-max")||"0",10)||0;
-  const o=overlay(`<h2>Stanze</h2><div class="rooms"></div>`,[["Chiudi","",()=>{}]]);
+  const o=overlay(`<h2>Stanze</h2><div class="seg mode"><button data-m="story">📖 Storia</button><button data-m="creative">🎨 Creativa</button></div>
+    <div class="note">${MODE==="creative"?"Creativa: arreda come vuoi qualunque stanza già sbloccata, senza tempo, errori o stelle.":"Storia: stanze in ordine, con le stelle dell'armonia."}</div><div class="rooms"></div>`,[["Chiudi","",()=>{}]]);
+  o.querySelectorAll(".mode button").forEach(b=>{b.classList.toggle("on",b.dataset.m===MODE);b.onclick=()=>{MODE=b.dataset.m;store("scatoloni-mode",MODE);SFX.ui();o.remove();roomsMenu()}});
   const box=o.querySelector(".rooms");let h=-1;
   ROOMS.forEach((r,i)=>{if(r.h!==h){h=r.h;const d=document.createElement("div");d.className="h";d.textContent=`${HOUSES[h].year} · ${HOUSES[h].name}`;box.appendChild(d)}
-    const b=document.createElement("button");b.textContent=(i<=mx?"":"🔒 ")+r.name+(i===ri?"  ← qui":"");b.disabled=i>mx;b.onclick=()=>{o.remove();loadRoom(i)};box.appendChild(b)});
+    const b=document.createElement("button");{const st=+(store("scatoloni-stars-"+i)||0);b.textContent=(i<=mx?"":"🔒 ")+r.name+(st?"  "+starStr(st):"")+(i===ri?"  ← qui":"")};b.disabled=i>mx;b.onclick=()=>{o.remove();loadRoom(i)};box.appendChild(b)});
 }
 function settingsMenu(after){
   const seg=(k,opts)=>`<div class="seg" data-k="${k}">${opts.map(([v,l])=>`<button data-v="${v}">${l}</button>`).join("")}</div>`;
@@ -1597,10 +2143,10 @@ function doHint(){
   const it=items.find(i=>i.bad)||items.find(i=>i.state==="loose")||items.find(i=>i.state==="slot"&&!allowed(i,i.slot));
   if(!it){const c=cartons.find(c=>c.queue.length&&!c.vanish);if(c){hint={carton:c,t0:now};showToast("Apri uno scatolone")}else showToast("Sembra tutto a posto!");dirty=true;return}
   const free=R.slots.filter(s=>!s.item&&allowed(it,s));
-  const open=free.find(s=>slotOn(s));
+  const open=free.find(s=>slotOn(s))||sensiblePlace(it);
   if(open){hint={it,slot:open,t0:now};showToast(`${it.n}: ecco un posto adatto`)}
   else if(free.length){const op=free[0].owner;hint={it,op,t0:now};showToast(`${it.n}: prova ad aprire ${op.label}`)}
-  else{const occ=R.slots.find(s=>s.item&&allowed(it,s));hint={it,slot:null,t0:now};showToast(occ?`${it.n}: libera prima un posto occupato`:"Prova a spostare qualcosa")}
+  else{hint={it,slot:null,t0:now};showToast(`${it.n}: fai spazio spostando qualcosa`)}
   dirty=true;
 }
 document.getElementById("hintB").onclick=doHint;
@@ -1643,8 +2189,9 @@ fit();
 const saved=parseInt(store("scatoloni3-cur")||"0",10)||0;
 loadRoom(0,false);
 document.getElementById("toast").style.opacity=0;
-overlay(`<div class="big">📦</div><h2>Scatoloni</h2><p>Un gioco tranquillo sul disfare traslochi.<br>Apri gli scatoloni, sistema le cose come piace a te e scopri una vita, stanza dopo stanza.</p><p class="how">Due dita per ingrandire · doppio tocco per zoomare · tocca frigo, armadi, cassetti e coperte per aprirli</p>`,
-  [["Nuova partita","primary",()=>loadRoom(0)]].concat(saved>0?[[`Continua: ${ROOMS[saved].name}`,"",()=>loadRoom(saved)]]:[]));
+overlay(`<div class="big">📦</div><h2>Scatoloni</h2><p>Un gioco tranquillo sul disfare traslochi.<br>Apri gli scatoloni, sistema le cose come piace a te e scopri una vita, stanza dopo stanza.</p><p class="how">Trascina gli oggetti dove vuoi · doppio tocco su un oggetto per girarlo · tocca frigo, armadi, cassetti e coperte per aprirli · due dita per ingrandire</p>`,
+  [["Nuova partita","primary",()=>{MODE="story";store("scatoloni-mode",MODE);loadRoom(0)}]].concat(saved>0?[[`Continua: ${ROOMS[saved].name}`,"",()=>{MODE="story";store("scatoloni-mode",MODE);loadRoom(saved)}]]:[])
+   .concat([["🎨 Modalità creativa","",()=>{MODE="creative";store("scatoloni-mode",MODE);roomsMenu()}]]));
 requestAnimationFrame(frame);
 if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
