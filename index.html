@@ -649,10 +649,10 @@ function drawMark(s){
   ctx.restore();
 }
 function isoEllQ(Q,cx,cy,cz,r,k){const c=Q(cx,cy,cz);ctx.beginPath();ctx.ellipse(c[0],c[1],r*U*1.414*k,r*U*.707*k,0,0,Math.PI*2)}
-function drawSolid(b,topCol,Q=P,k=1){
+function drawSolid(b,topCol,Q=P,k=1,soft=false){
   const{x,y,z,w,d,h,c}=b;if(h<.004)return;
   const sil=[Q(x,y,z+h),Q(x+w,y,z+h),Q(x+w,y,z),Q(x+w,y+d,z),Q(x,y+d,z),Q(x,y+d,z+h)];
-  const rad=Math.max(.8,Math.min(6,w*U*.3,d*U*.3,h*ZU*.4)*k);
+  const rad=soft?Math.max(1,Math.min(12,w*U*.42,d*U*.42,h*ZU*.5)*k):Math.max(.8,Math.min(6,w*U*.3,d*U*.3,h*ZU*.4)*k);
   ctx.save();rpath(sil,rad);ctx.clip();
   const fy=[Q(x,y+d,z),Q(x+w,y+d,z),Q(x+w,y+d,z+h),Q(x,y+d,z+h)],fx=[Q(x+w,y,z),Q(x+w,y+d,z),Q(x+w,y+d,z+h),Q(x+w,y,z+h)],tp=[Q(x,y,z+h),Q(x+w,y,z+h),Q(x+w,y+d,z+h),Q(x,y+d,z+h)];
   poly(fy,shade(c,-.05));poly(fx,shade(c,-.2));if(h*ZU*k>12&&d*U*k>10)poly(fx,TONE);poly(tp,topCol||shade(c,.12));
@@ -754,9 +754,13 @@ function plantM(pot,potR,potH,leaf,size){const L=[cyl(0,0,0,potR*.8,potH,pot,{r2
   [[0,0,potH+s*.9,s],[-s*.7,s*.5,potH+s*.55,s*.75],[s*.65,-s*.45,potH+s*.6,s*.75],[s*.35,s*.55,potH+s*1.25,s*.6],[-s*.4,-s*.4,potH+s*1.3,s*.6]].forEach(([x,y,z,r],i)=>L.push(sph(x,y,z,r,i%2?leaf:mixHex(leaf,.12))));return L}
 function foldM(c,n=2,w=.36,d=.26){const L=[];for(let i=0;i<n;i++)L.push(bx(0,0,i*.07,w,d,.07,i%2?mixHex(c,.12):c,[TOP(mixHex(c,-.1),.08,.46,.92,.54)]));return L}
 function frameM(w,h,frame,inner,art=[]){return[_b(-w/2,0,-h/2,w,.07,h,frame,[FR(inner,.09,.91,.1,.9),...art])]}
+function shoeM(x,y,c){return[bx(x,y,0,.16,.38,.05,"#ffffff"),cyl(x,y-.08,.05,.075,.13,c,{top:"#3b2a26"}),sph(x,y+.08,.1,.08,c),bx(x,y+.01,.06,.13,.12,.07,c,[TOP("#ffffff",.25,.2,.75,.3),TOP("#ffffff",.25,.55,.75,.65)]),sph(x,y+.16,.07,.045,"#ffffff")]}
 function bottleM(c,h,r,cap){return[cyl(0,0,0,r,h,c),cyl(0,0,h,r*.4,h*.35,c),cyl(0,0,h*1.35,r*.45,h*.1,cap)]}
 const MODELS={
- teddy:()=>[sph(0,0,.2,.2,"#c98a4f"),sph(.13,.13,.08,.07,"#c98a4f"),sph(-.04,.17,.07,.07,"#c98a4f"),sph(0,0,.48,.15,"#c98a4f"),sph(-.09,.09,.6,.06,"#a86d3a"),sph(.09,-.09,.6,.06,"#a86d3a"),sph(.08,.08,.44,.06,"#f0d1a8"),sph(.1,.1,.46,.022,"#3b2a26")],
+ teddy:()=>[sph(0,0,.2,.2,"#c98a4f"),sph(-.16,.13,.25,.075,"#b97b42"),sph(.13,-.16,.25,.075,"#b97b42"),sph(.1,.1,.2,.11,"#f0d1a8"),
+   sph(.16,.08,.07,.075,"#c98a4f"),sph(.08,.16,.07,.075,"#c98a4f"),sph(.19,.11,.07,.035,"#f0d1a8"),sph(.11,.19,.07,.035,"#f0d1a8"),
+   sph(0,0,.47,.15,"#c98a4f"),sph(-.1,.08,.6,.06,"#a86d3a"),sph(.08,-.1,.6,.06,"#a86d3a"),sph(.09,.09,.43,.065,"#f0d1a8"),sph(.12,.12,.45,.022,"#3b2a26"),
+   sph(.01,.12,.52,.018,"#3b2a26"),sph(.12,.01,.52,.018,"#3b2a26")],
  alarm:()=>[bx(0,0,0,.26,.12,.24,"#e8554e",[FY("#fffaf0",.15,.85,.15,.85),FY("#3b2a26",.48,.52,.5,.78),FY("#3b2a26",.5,.72,.48,.52)]),sph(-.08,0,.27,.055,"#f2c94c"),sph(.08,0,.27,.055,"#f2c94c")],
  books:()=>[bx(0,0,0,.42,.3,.09,"#e76f51",[PAGES]),bx(.02,-.01,.09,.38,.28,.09,"#2a9d8f",[PAGES]),bx(-.01,.01,.18,.4,.29,.08,"#f4a261",[PAGES])],
  bookrow:()=>[["#e63946",.44],["#457b9d",.5],["#f4a261",.42],["#2a9d8f",.47],["#9d4edd",.4]].map(([c,h],i)=>bx(-.2+i*.1,0,0,.09,.3,h,c,[FY("#fff3d6",.2,.8,.7,.8)])),
@@ -785,8 +789,8 @@ const MODELS={
  milk:()=>[bx(0,0,0,.16,.16,.3,"#ffffff",[FY("#4ea8de",0,1,.25,.6),FXd("#4ea8de",0,1,.25,.6)]),bx(0,0,.3,.16,.06,.07,"#f1f1f1")],
  juice:()=>[bx(0,0,0,.14,.1,.2,"#ffb703",[FY("#fb8500",.1,.9,.3,.7)]),bx(.04,0,.2,.012,.012,.08,"#e63946")],
  guitar:()=>[dsk(0,-.04,.24,.23,"#8a4b2a","y"),dsk(0,-.04,.52,.17,"#8a4b2a","y"),dsk(0,.02,.24,.22,"#d08c4f","y"),dsk(0,.02,.52,.16,"#d08c4f","y"),dsk(0,.03,.4,.06,"#3b2a26","y"),bx(0,0,.6,.07,.04,.55,"#6d4c41"),bx(0,0,1.13,.1,.05,.13,"#4e342e")],
- shoes:()=>[bx(-.09,0,0,.13,.32,.05,"#f1f1f1"),bx(-.09,.04,.05,.12,.22,.08,"#e63946"),bx(.09,.03,0,.13,.32,.05,"#f1f1f1"),bx(.09,.07,.05,.12,.22,.08,"#e63946")],
- slippers:()=>[bx(-.08,0,0,.13,.3,.06,"#f7a8b8"),sph(-.08,.08,.08,.05,"#fff"),bx(.08,.03,0,.13,.3,.06,"#f7a8b8"),sph(.08,.11,.08,.05,"#fff")],
+ shoes:()=>[...shoeM(-.1,-.02,"#e63946"),...shoeM(.1,.04,"#e63946")],
+ slippers:()=>[bx(-.09,0,0,.15,.34,.045,"#fff3f3"),sph(-.09,.07,.07,.08,"#f7a8b8"),sph(-.09,.13,.13,.045,"#ffffff"),bx(.09,.04,0,.15,.34,.045,"#fff3f3"),sph(.09,.11,.07,.08,"#f7a8b8"),sph(.09,.17,.13,.045,"#ffffff")],
  headphones:()=>[cyl(-.11,0,0,.07,.07,"#333",{top:"#555"}),cyl(.11,0,0,.07,.07,"#333",{top:"#555"}),bx(0,0,.06,.24,.04,.035,"#ef476f")],
  toothbrush:()=>[cyl(0,0,0,.07,.13,"#9bd1e5",{top:"#7cb9d1"}),bx(-.02,0,.08,.02,.02,.22,"#f28482"),bx(-.02,0,.3,.03,.04,.04,"#fff"),bx(.03,.01,.08,.02,.02,.2,"#90be6d")],
  soap:()=>[bx(0,0,0,.22,.15,.04,"#ffffff"),bx(0,0,.04,.17,.11,.07,"#f7a8b8"),sph(.05,.02,.14,.025,"#e3f6ff")],
@@ -925,7 +929,7 @@ function drawModel(prims,sx,sy,k,glow,alpha){
   ctx.save();if(alpha!=null)ctx.globalAlpha=alpha;
   if(glow){ctx.shadowColor=glow;ctx.shadowBlur=14}
   for(const p of list){
-    if(p.t==="b")drawSolid(p,null,Q,k);
+    if(p.t==="b")drawSolid(p,null,Q,k,!p.hard);
     else if(p.t==="c")drawCyl(p,Q,k);
     else if(p.t==="s")drawSph(p,Q,k);
     else if(p.t==="d")drawDisc(p,Q,k);
@@ -1113,8 +1117,11 @@ function lookMenu(after){
     <div class="row"><div class="lab">Colore delle pareti</div>${sw("wall",LOOK.wall)}</div>
     <div class="row"><div class="lab">Tappezzeria</div>${seg("wp",LOOK.wp)}</div>
     <div class="row"><div class="lab">Pavimento</div>${seg("fp",LOOK.fp)}${sw("floor",LOOK.floor)}</div>
-    <div class="row"><div class="lab">Tende</div>${sw("cur",LOOK.cur)}</div></div>`,[["Fatto","primary",()=>{saveLook();after&&after()}]]);
+    <div class="row"><div class="lab">Tende</div>${sw("cur",LOOK.cur)}</div><div class="note">Trascina la stanza col dito per vederla meglio.</div></div>`,[["Fatto","primary",()=>{saveLook();after&&after()}]]);
   o.classList.add("side");
+  const card=o.querySelector(".card");const setPanel=w=>{PANEL=w;computeBase();cam={x:home.x,y:home.y,z:1};dirty=true};
+  requestAnimationFrame(()=>setPanel(VW>560?card.offsetWidth+20:0));
+  const fatto=[...card.querySelectorAll(":scope > button")].pop();const oc=fatto.onclick;fatto.onclick=()=>{setPanel(0);oc()};
   const refresh=()=>{o.querySelectorAll("[data-k]").forEach(g=>{const k=g.dataset.k,cur=k==="wall"?room.wall[0]:room[k];g.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.v===String(cur)))})};
   o.querySelectorAll("[data-k] button").forEach(b=>b.onclick=()=>{const k=b.parentNode.dataset.k,v=b.dataset.v;
     if(k==="wall")room.wall=[v,mixHex(v,-.06)];else room[k]=v;SFX.tick();refresh();dirty=true});
@@ -1232,7 +1239,7 @@ function draw(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   const g=ctx.createLinearGradient(0,0,VW,VH);g.addColorStop(0,"#f6d6e4");g.addColorStop(.55,"#dcd3f2");g.addColorStop(1,"#c9e3f1");
   ctx.fillStyle=g;ctx.fillRect(0,0,VW,VH);ctx.fillStyle=BGDOT;ctx.fillRect(0,0,VW,VH);
-  const zz=Z();ctx.setTransform(dpr*zz,0,0,dpr*zz,dpr*(VW/2-cam.x*zz),dpr*(VH/2-cam.y*zz));
+  const zz=Z();ctx.setTransform(dpr*zz,0,0,dpr*zz,dpr*(VW/2+SHIFT-cam.x*zz),dpr*(VH/2-cam.y*zz));
   drawShell();drawWallDecals();drawFloorDecals();
   cartons=cartons.filter(c=>!(c.vanish&&now>c.vanish+340));
   const list=[...R.boxes,...cartons];
@@ -1243,7 +1250,10 @@ function draw(){
     if(it.state!=="loose"&&it.state!=="slot")continue;
     if(isHidden(it)){it.rect=null;continue}
     const p=itemPos(it),[,ex,lift]=itemPrims(it,it.plane);
-    const K=ITEM_K;list.push({kind:"item",it,p,x:p.x+ex.x0*K,y:p.y+ex.y0*K,z:p.z+(ex.z0+lift)*K,w:Math.max(.02,(ex.x1-ex.x0)*K),d:Math.max(.02,(ex.y1-ex.y0)*K),h:Math.max(.02,(ex.z1-ex.z0)*K)});
+    const K=ITEM_K,hh=Math.min(.55,Math.max(.05,(ex.z1-ex.z0)*K));
+    if(it.plane==="L")list.push({kind:"item",it,p,x:0,y:p.y-.25,z:p.z-.25,w:.06,d:.5,h:.5});
+    else if(it.plane==="R")list.push({kind:"item",it,p,x:p.x-.25,y:0,z:p.z-.25,w:.5,d:.06,h:.5});
+    else list.push({kind:"item",it,p,x:p.x-.14,y:p.y-.14,z:p.z+Math.max(0,(ex.z0+lift)*K),w:.28,d:.28,h:hh});
   }
   const order=topo(list);
   for(const o of order){if(o.kind==="item")drawItem(o);else if(o.kind==="carton")drawCarton(o);else if(o.kind==="door"){drawDoor(o);o.bb=bboxOf(o)}else drawBox(o)}
@@ -1286,17 +1296,17 @@ Object.assign(SFX,{
 });
 
 // ================= Vista: zoom e spostamento =================
-let VW=960,VH=640,baseZ=1,cam={x:480,y:300,z:1},home={x:480,y:300},bounds=[0,0,960,640];
+let SHIFT=0,PANEL=0,VW=960,VH=640,baseZ=1,cam={x:480,y:300,z:1},home={x:480,y:300},bounds=[0,0,960,640];
 function Z(){return baseZ*cam.z}
 function ps(e){const r=cv.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
-function toWorld(s){const z=Z();return{x:(s.x-VW/2)/z+cam.x,y:(s.y-VH/2)/z+cam.y}}
+function toWorld(s){const z=Z();return{x:(s.x-VW/2-SHIFT)/z+cam.x,y:(s.y-VH/2)/z+cam.y}}
 function computeBase(){
-  const x0=ox-(N+.4)*U,x1=ox+(N+.4)*U,y0=P(-.3,-.3,WH)[1]-30,y1=P(N,N,-.5)[1]+20;
+  const x0=ox-(N+.35)*U,x1=ox+(N+.35)*U,y0=P(-.3,-.3,WH)[1]-12,y1=P(N,N,-.5)[1]+10;
   bounds=[x0,y0,x1,y1];home={x:(x0+x1)/2,y:(y0+y1)/2-12};
-  const topPad=52;baseZ=Math.min(VW/(x1-x0),(VH-topPad)/(y1-y0));home.y-=topPad/2/baseZ;
+  const topPad=Math.min(48,VH*.08),aw=VW-PANEL;SHIFT=PANEL/2;baseZ=Math.min(aw/(x1-x0),(VH-topPad)/(y1-y0));home.y-=topPad/2/baseZ;
 }
 function clampCam(){
-  cam.z=clamp(cam.z,1,4);if(cam.z<=1.001){cam.z=1;cam.x=home.x;cam.y=home.y;return}
+  cam.z=clamp(cam.z,1,4);if(cam.z<=1.001){cam.z=1;const mx=(bounds[2]-bounds[0])*.3,my=(bounds[3]-bounds[1])*.3;cam.x=clamp(cam.x,home.x-mx,home.x+mx);cam.y=clamp(cam.y,home.y-my,home.y+my);return}
   const z=Z(),hw=VW/2/z,hh=VH/2/z,[x0,y0,x1,y1]=bounds;
   cam.x=(x1-x0)>2*hw?clamp(cam.x,x0+hw,x1-hw):home.x;cam.y=(y1-y0)>2*hh?clamp(cam.y,y0+hh-40/z,y1-hh):home.y;
 }
@@ -1343,7 +1353,7 @@ cv.addEventListener("pointerdown",e=>{
     const pz=pickPuzzle(p);if(pz){timerOn=true;if(pz.solved)showToast("🧩 "+pz.done);else openPuzzle(pz);return}
     const op=pickOpen(p);if(op){if(hint&&hint.op===op)hint=null;toggleOpen(op);return}
   }
-  if(now-lastTap.t<320&&Math.hypot(s.x-lastTap.x,s.y-lastTap.y)<30){zoomAt(s,cam.z>1.3?1:2.2);lastTap.t=0;return}
+  if(now-lastTap.t<320&&Math.hypot(s.x-lastTap.x,s.y-lastTap.y)<30){if(cam.z>1.3){cam.z=1;cam.x=home.x;cam.y=home.y;clampCam();dirty=true}else zoomAt(s,2.2);lastTap.t=0;return}
   lastTap={t:now,x:s.x,y:s.y};
   cv.setPointerCapture(e.pointerId);pan={sx:s.x,sy:s.y,cx:cam.x,cy:cam.y};
 });
@@ -1369,7 +1379,7 @@ cv.addEventListener("pointerleave",()=>{if(hover){hover=null;dirty=true}});
 cv.addEventListener("wheel",e=>{e.preventDefault();zoomAt(ps(e),cam.z*Math.exp(-e.deltaY*.0015))},{passive:false});
 document.getElementById("zIn").onclick=()=>zoomAt({x:VW/2,y:VH/2},cam.z*1.4);
 document.getElementById("zOut").onclick=()=>zoomAt({x:VW/2,y:VH/2},cam.z/1.4);
-document.getElementById("zFit").onclick=()=>{cam.z=1;clampCam();dirty=true};
+document.getElementById("zFit").onclick=()=>{cam.z=1;cam.x=home.x;cam.y=home.y;clampCam();dirty=true};
 
 function endDrag(){
   if(!drag)return;const it=drag.it,t=drag.target;
