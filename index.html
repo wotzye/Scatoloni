@@ -31,7 +31,7 @@ button.primary{background:var(--accent);color:#fff;padding:11px 26px;font-size:1
 #hud .sp{flex:1;pointer-events:none}
 .pill{background:rgba(42,30,48,.72);color:#fff8ef;border-radius:999px;padding:6px 12px;font-weight:800;font-size:14px;white-space:nowrap;
   -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border:2px solid rgba(255,255,255,.15)}
-#timer,#errs,#puz{display:none}
+#timer,#errs,#puz,#cmb{display:none}
 #timer.low{background:#c8414a;animation:blink 1s infinite}
 @keyframes blink{50%{opacity:.55}}
 #hud button{width:40px;height:40px;border-radius:50%;padding:0;font-size:18px;box-shadow:0 2px 0 var(--ink);display:flex;align-items:center;justify-content:center}
@@ -97,7 +97,7 @@ button.primary{background:var(--accent);color:#fff;padding:11px 26px;font-size:1
 <div id="wrap"><div id="holder">
   <canvas id="cv"></canvas>
   <div id="hud">
-    <span class="pill" id="count"></span><span class="pill" id="puz"></span><span class="pill" id="timer"></span><span class="pill" id="errs"></span>
+    <span class="pill" id="count"></span><span class="pill" id="puz"></span><span class="pill" id="cmb"></span><span class="pill" id="timer"></span><span class="pill" id="errs"></span>
     <span class="sp"></span>
     <button id="hintB" title="Suggerimento">💡</button>
     <button id="roomsB" title="Stanze">🏠</button>
@@ -471,9 +471,10 @@ function loadRoom(i,intro=true){
   store("scatoloni3-cur",String(i));
   const mx=parseInt(store("scatoloni3-max")||"0",10)||0;if(i>mx)store("scatoloni3-max",String(i));
   R=builder();room.build(R);R.opens.forEach(updOpen);initPuzzles(i);
-  items=shuffle(room.items.map(d=>({key:d[0],M:modelOf(d[0]),n:d[1],ok:d[2],s:d[3],state:"queue",slot:null,x:0,y:0,z:0,plane:"top",bad:false})));
+  items=room.items.map(d=>({key:d[0],M:modelOf(d[0]),n:d[1],ok:d[2],s:d[3],state:"queue",slot:null,x:0,y:0,z:0,plane:"top",bad:false}));
+  items=shuffle(items.concat(initCombos(i)));
   cartons=room.cartons.map(([x,y])=>({kind:"carton",x,y,z:0,w:1.1,d:1.1,h:.9,c:"#d39a5e",queue:[],decos:[]}));
-  items.forEach((it,k)=>cartons[k%cartons.length].queue.push(it));
+  let ck=0;for(const it of items){if(it.inK){const s=R.slots.find(s=>s.kind===it.inK&&!s.item&&fits(it,s));if(s){it.state="slot";it.slot=s;s.item=it;it.x=s.x;it.y=s.y;it.z=s.z;continue}}cartons[ck++%cartons.length].queue.push(it)}
   const H=HOUSES[room.h];
   updateCount();dirty=true;
   if(intro){
@@ -521,15 +522,19 @@ function emerge(c){
   updateCount();dirty=true;
 }
 function updateCount(){
-  const placed=items.filter(i=>i.state==="slot").length;
+  const fin=items.filter(i=>!i.part),placed=fin.filter(i=>i.state==="slot").length,rc=(R&&R.recipes)||[];
+  const totalF=fin.length+rc.filter(r=>!r.done&&R.finalDefs[r.r]).length;
   const inBox=cartons.reduce((a,c)=>a+c.queue.length,0);
-  document.getElementById("count").textContent=(inBox?`📦 ${inBox} · `:"")+`✅ ${placed}/${items.length}`;
+  document.getElementById("count").textContent=(inBox?`📦 ${inBox} · `:"")+`✅ ${placed}/${totalF}`;
+  const ce=document.getElementById("cmb");ce.style.display=rc.length?"inline-block":"none";ce.textContent=`🔧 ${rc.filter(r=>r.done).length}/${rc.length}`;
   const pe=document.getElementById("puz"),pl=(R&&R.puzzles)||[];pe.style.display=pl.length?"inline-block":"none";pe.textContent=`🧩 ${pl.filter(p=>p.solved).length}/${pl.length}`;
 }
 function check(){
   updateCount();
   if(finished)return;
-  if(items.some(i=>i.state!=="slot"))return;
+  if(items.some(i=>i.state!=="slot"||i.part)){
+    if(items.some(i=>i.part)&&items.every(i=>i.part||i.state==="slot")&&!R.partNag){R.partNag=1;showToast("Ci sono ancora pezzi da ricomporre 🔧")}
+    return}
   const wrong=items.filter(i=>!allowed(i,i.slot));
   items.forEach(i=>i.bad=wrong.includes(i));
   const left=(R.puzzles||[]).filter(p=>!p.solved);
@@ -723,6 +728,8 @@ function drawItemAt(it,sx,sy,plane,sc,glow,alpha){
 }
 function itemGlow(it){
   if(hint&&hint.it===it)return`rgba(255,200,60,${.7+.3*Math.sin(now/120)})`;
+  if(drag&&drag.combo&&drag.combo.o===it)return`rgba(64,192,87,${.75+.25*Math.sin(now/90)})`;
+  if(hint&&hint.it2===it)return`rgba(255,200,60,${.7+.3*Math.sin(now/120)})`;
   if(it.bad||(it.flash&&now-it.flash<700))return"#ff3b3b";
   if(hover===it)return"rgba(255,255,255,1)";
   return null;
@@ -1127,21 +1134,125 @@ function lookMenu(after){
     if(k==="wall")room.wall=[v,mixHex(v,-.06)];else room[k]=v;SFX.tick();refresh();dirty=true});
   refresh();
 }
+
+// ================= Oggetti da ricomporre =================
+Object.assign(MODELS,{
+ lampbase:()=>[cyl(0,0,0,.11,.03,"#5a5a64"),bx(0,0,.03,.03,.03,.3,"#6c6c78")],
+ lampshade:()=>[cyl(0,0,0,.13,.13,"#f2a65a",{r2:.05,top:"#e07b39"})],
+ lamp_nob:()=>[cyl(0,0,0,.11,.03,"#5a5a64"),bx(0,0,.03,.03,.03,.3,"#6c6c78"),cyl(.04,.04,.28,.13,.13,"#d9915a",{r2:.05,top:"#b86a35"})],
+ bulb:()=>[cyl(0,0,0,.035,.05,"#adb5bd"),sph(0,0,.11,.075,"#fff3b0")],
+ robot_body:()=>[bx(0,0,0,.24,.18,.22,"#a9b4c2",[FY("#e9c46a",.3,.7,.3,.6)]),bx(-.16,0,.06,.06,.07,.14,"#8e9aab"),bx(.16,0,.06,.06,.07,.14,"#8e9aab"),cyl(0,0,.22,.04,.03,"#666")],
+ robot_head:()=>[bx(0,0,0,.2,.16,.15,"#c7d0db",[FY("#00b4d8",.15,.38,.35,.7),FY("#00b4d8",.62,.85,.35,.7)]),cyl(0,0,.15,.012,.09,"#666"),sph(0,0,.26,.035,"#e63946")],
+ guitar_body:()=>[dsk(0,-.04,.24,.23,"#8a4b2a","y"),dsk(0,-.04,.52,.17,"#8a4b2a","y"),dsk(0,.02,.24,.22,"#d08c4f","y"),dsk(0,.02,.52,.16,"#d08c4f","y"),dsk(0,.03,.4,.06,"#3b2a26","y")],
+ guitar_neck:()=>[bx(0,0,0,.07,.04,.55,"#6d4c41"),bx(0,0,.55,.1,.05,.13,"#4e342e")],
+ hairdryer_body:()=>[bx(-.04,0,0,.07,.07,.16,"#c77dff"),bx(0,0,.14,.26,.11,.11,"#c77dff")],
+ nozzle:()=>[cyl(0,0,0,.05,.1,"#9d4edd",{r2:.035})],
+ shampoo_bottle:()=>[bx(0,0,0,.14,.1,.26,"#80cbc4",[FY("#ffffff",.2,.8,.3,.7)])],
+ pump:()=>[cyl(0,0,0,.035,.05,"#ffffff"),bx(.03,0,.05,.08,.025,.025,"#ffffff")],
+ moka_base:()=>[cyl(0,0,0,.1,.14,"#adb5bd",{r2:.08,top:"#8d99ae"})],
+ moka_filled:()=>[cyl(0,0,0,.1,.14,"#adb5bd",{r2:.08,top:"#6b3e26"})],
+ coffee:()=>[bx(0,0,0,.18,.1,.24,"#6b3e26",[FY("#e9c46a",.15,.85,.4,.7)]),bx(0,0,.24,.18,.04,.04,"#4e2c1a")],
+ moka_top:()=>[cyl(0,0,0,.08,.16,"#adb5bd",{r2:.1,top:"#ced4da"}),sph(0,0,.17,.025,"#3b2a26"),bx(.13,0,.06,.06,.03,.1,"#3b2a26")],
+ moka:()=>[cyl(0,0,0,.1,.14,"#adb5bd",{r2:.08}),cyl(0,0,.14,.08,.16,"#adb5bd",{r2:.1,top:"#ced4da"}),sph(0,0,.31,.025,"#3b2a26"),bx(.13,0,.2,.06,.03,.1,"#3b2a26")],
+ teapot_body:()=>[sph(0,0,.15,.15,"#f28482"),bx(.19,0,.12,.12,.04,.04,"#f28482"),bx(-.18,0,.1,.04,.03,.12,"#f28482")],
+ teapot_lid:()=>[cyl(0,0,0,.07,.04,"#f28482"),sph(0,0,.06,.03,"#ffffff")],
+ photo_print:()=>[bx(0,0,0,.3,.24,.012,"#ffffff",[TOP("#ffd6a5",.08,.08,.92,.92),TOP("#f28482",.15,.2,.45,.75),TOP("#84a59d",.55,.2,.85,.75)])],
+ frame_empty:()=>frameM(.52,.62,"#b08968","#f2e8cf",[]),
+ abatbase:()=>[cyl(0,0,0,.09,.04,"#c8915e"),bx(0,0,.04,.03,.03,.24,"#c8915e")],
+ abatshade:()=>[cyl(0,0,0,.15,.16,"#fff3d6",{r2:.09,top:"#ffe8a8"})],
+ abat_nob:()=>[cyl(0,0,0,.09,.04,"#c8915e"),bx(0,0,.04,.03,.03,.24,"#c8915e"),cyl(0,0,.24,.15,.16,"#e9dcc0",{r2:.09,top:"#d8c9a3"})],
+ cactus_plant:()=>[cyl(0,0,0,.055,.22,"#5fb05f",{top:"#6cc06c"}),cyl(.08,0,.08,.03,.09,"#5fb05f"),sph(0,0,.23,.03,"#ff8fab")],
+ pot_empty:()=>[cyl(0,0,0,.09,.12,"#e07a5f",{r2:.11,top:"#6b4a33"})],
+ floorlamp_pole:()=>[cyl(0,0,0,.16,.04,"#3b2a26"),bx(0,0,.04,.04,.04,1.25,"#3b2a26")],
+ floorlamp_shade:()=>[cyl(0,0,0,.24,.26,"#fff3d6",{r2:.15,top:"#ffe8a8"})],
+ tv_panel:()=>[bx(0,0,0,.95,.06,.58,"#2b2b33",[FY("#3a3a46",.04,.96,.06,.94)])],
+ tv_foot:()=>[bx(0,0,0,.36,.18,.04,"#333"),bx(0,0,.04,.07,.07,.12,"#333")],
+ coffeemaker_body:()=>[bx(0,0,0,.26,.24,.04,"#3b2a26"),bx(0,-.08,.04,.26,.08,.36,"#3b2a26"),bx(0,0,.32,.26,.24,.08,"#3b2a26")],
+ carafe:()=>[cyl(0,0,0,.08,.16,"#bde0fe",{top:"#6b3e26"}),bx(.1,0,.04,.04,.03,.08,"#3b2a26")],
+ vase_empty:()=>[cyl(0,0,0,.07,.2,"#a2d2ff",{r2:.05,top:"#5c7a99"})],
+ flowerbunch:()=>[bx(0,0,0,.3,.05,.03,"#5aa95a"),sph(.14,0,.05,.06,"#ff8fab"),sph(.16,.05,.06,.05,"#ffd60a"),sph(.12,-.05,.05,.05,"#cdb4db"),bx(-.06,0,.01,.06,.08,.04,"#f4a261")],
+ mirror_frame:()=>frameM(.5,.74,"#c9a273","#f2e8cf",[]),
+ mirror_glass:()=>[bx(0,0,0,.36,.28,.02,"#d7eef5",[TOP("#ffffff",.15,.2,.35,.8)])],
+ monitor_panel:()=>[bx(0,0,0,.82,.05,.5,"#26262e",[FY("#3a3a46",.03,.97,.05,.95)])],
+ monitor_stand:()=>[bx(0,0,0,.22,.16,.02,"#444"),bx(0,0,.02,.05,.05,.2,"#444")],
+ mobile_arm:()=>[bx(0,0,0,.05,.05,.6,"#ffffff"),bx(.12,0,.6,.28,.04,.04,"#ffffff")],
+ mobile_stars:()=>[sph(-.08,0,.06,.06,"#ffd60a"),sph(.08,.03,.06,.06,"#a2d2ff"),sph(0,-.06,.06,.06,"#ffafcc")],
+ mobile:()=>[bx(0,0,0,.05,.05,.6,"#ffffff"),bx(.12,0,.6,.3,.04,.04,"#ffffff"),bx(.04,0,.44,.008,.008,.16,"#adb5bd"),bx(.14,0,.4,.008,.008,.2,"#adb5bd"),bx(.24,0,.46,.008,.008,.14,"#adb5bd"),
+   sph(.04,0,.41,.05,"#ffd60a"),sph(.14,0,.37,.05,"#a2d2ff"),sph(.24,0,.43,.05,"#ffafcc")],
+ musicbox_box:()=>[bx(0,0,0,.24,.18,.12,"#ffafcc",[FY("#e9c46a",.4,.6,.4,.6)]),cyl(0,0,.12,.02,.06,"#e9c46a")],
+ ballerina:()=>[cyl(0,0,0,.06,.06,"#ffafcc",{r2:.02}),sph(0,0,.1,.04,"#ffe5d9"),sph(0,0,.155,.03,"#ffe5d9")]
+});
+WALLM.add("frame_empty");WALLM.add("mirror_frame");
+Object.assign(SIZE,{lampbase:30,lampshade:30,lamp_nob:36,bulb:20,robot_body:34,robot_head:28,guitar_body:46,guitar_neck:34,hairdryer_body:30,nozzle:20,shampoo_bottle:26,pump:20,
+ moka_base:24,moka_filled:24,coffee:26,moka_top:24,moka:30,teapot_body:32,teapot_lid:20,photo_print:26,frame_empty:44,abatbase:28,abatshade:30,abat_nob:32,cactus_plant:24,pot_empty:24,
+ floorlamp_pole:46,floorlamp_shade:40,tv_panel:52,tv_foot:34,coffeemaker_body:34,carafe:26,vase_empty:26,flowerbunch:32,mirror_frame:48,mirror_glass:30,monitor_panel:48,monitor_stand:28,
+ mobile_arm:36,mobile_stars:26,mobile:40,musicbox_box:28,ballerina:24});
+// ricette: a + b → r. "ain"/"bin" = il pezzo parte nascosto in un posto di quel tipo (cassetto, frigo, sotto le coperte)
+const COMBOS={
+ 0:[{a:"lampbase",an:"Base della lampada",b:"lampshade",bn:"Paralume",r:"lamp_nob",rn:"Lampada senza lampadina"},{a:"lamp_nob",b:"bulb",bn:"Lampadina",bin:"drawer",r:"desklamp"},
+    {a:"robot_body",an:"Corpo del robot",b:"robot_head",bn:"Testa del robot",r:"robot"}],
+ 1:[{a:"guitar_body",an:"Cassa della chitarra",b:"guitar_neck",bn:"Manico della chitarra",r:"guitar"},{a:"lampbase",an:"Base della lampada",b:"lampshade",bn:"Paralume",bin:"bedin",r:"desklamp"}],
+ 2:[{a:"hairdryer_body",an:"Phon senza beccuccio",b:"nozzle",bn:"Beccuccio del phon",r:"hairdryer"},{a:"shampoo_bottle",an:"Flacone",b:"pump",bn:"Tappo dosatore",r:"shampoo"}],
+ 3:[{a:"moka_base",an:"Base della moka",b:"coffee",bn:"Caffè macinato",bin:"fridgein",r:"moka_filled",rn:"Moka col caffè"},{a:"moka_filled",b:"moka_top",bn:"Parte alta della moka",r:"moka",rn:"Moka",rok:["stove","counter"]},
+    {a:"teapot_body",an:"Teiera senza coperchio",b:"teapot_lid",bn:"Coperchio della teiera",r:"teapot"}],
+ 4:[{a:"frame_empty",an:"Cornice vuota",b:"photo_print",bn:"Fotografia",bin:"drawer",r:"photo"},{a:"abatbase",an:"Base dell'abat-jour",b:"abatshade",bn:"Paralume",r:"lamp"}],
+ 5:[{a:"hairdryer_body",an:"Phon senza beccuccio",b:"nozzle",bn:"Beccuccio del phon",r:"hairdryer"},{a:"cactus_plant",an:"Cactus senza vaso",b:"pot_empty",bn:"Vasetto",r:"cactus"}],
+ 6:[{a:"tv_panel",an:"Schermo della TV",b:"tv_foot",bn:"Piede della TV",r:"tv"},{a:"floorlamp_pole",an:"Asta della lampada",b:"floorlamp_shade",bn:"Paralume grande",r:"floorlamp"}],
+ 7:[{a:"coffeemaker_body",an:"Macchina del caffè senza caraffa",b:"carafe",bn:"Caraffa",r:"coffeemaker"},{a:"vase_empty",an:"Vaso vuoto",b:"flowerbunch",bn:"Mazzo di fiori",bin:"fridgein",r:"vase"}],
+ 8:[{a:"mirror_frame",an:"Cornice dello specchio",b:"mirror_glass",bn:"Vetro dello specchio",r:"mirror"},{a:"abatbase",an:"Base dell'abat-jour",b:"abatshade",bn:"Paralume",r:"abat_nob",rn:"Abat-jour senza lampadina"},
+    {a:"abat_nob",b:"bulb",bn:"Lampadina",bin:"drawer",r:"lamp"}],
+ 9:[{a:"monitor_panel",an:"Schermo del monitor",b:"monitor_stand",bn:"Base del monitor",r:"monitor"},{a:"lampbase",an:"Base della lampada",b:"lampshade",bn:"Paralume",r:"lamp_nob",rn:"Lampada senza lampadina"},
+    {a:"lamp_nob",b:"bulb",bn:"Lampadina",bin:"drawer",r:"desklamp"}],
+ 10:[{a:"mobile_arm",an:"Asta della giostrina",b:"mobile_stars",bn:"Stelline appese",r:"mobile",rn:"Giostrina",rok:["crib"],rs:40},{a:"musicbox_box",an:"Scatola del carillon",b:"ballerina",bn:"Ballerina",bin:"drawer",r:"musicbox"}]
+};
+function newItem(key,n,ok,s,part){return{key,M:modelOf(key),n,ok,s,part:!!part,state:"queue",slot:null,x:0,y:0,z:0,plane:"top",bad:false}}
+// prepara ricette e pezzi; toglie dalla lista gli oggetti che ora vanno ricomposti
+function initCombos(i){
+  const recs=(COMBOS[i]||[]).map(r=>({...r,done:false}));R.recipes=recs;R.finalDefs={};R.partNag=0;
+  const produced=new Set(recs.map(r=>r.r)),parts=[];
+  for(const r of recs){
+    if(r.rok)R.finalDefs[r.r]={n:r.rn,ok:r.rok,s:r.rs||SIZE[r.r]||34};
+    else{const k=items.findIndex(it=>it.key===r.r&&!it.part);if(k>=0){const it=items[k];R.finalDefs[r.r]={n:it.n,ok:it.ok,s:it.s};items.splice(k,1)}}
+  }
+  for(const r of recs)for(const[k,n,inK]of[[r.a,r.an,r.ain],[r.b,r.bn,r.bin]]){if(produced.has(k))continue;const p=newItem(k,n,[],SIZE[k]||28,true);p.inK=inK;parts.push(p)}
+  return parts;
+}
+function recipeFor(k1,k2){return(R.recipes||[]).find(r=>!r.done&&((r.a===k1&&r.b===k2)||(r.a===k2&&r.b===k1)))}
+function findCombo(it,bx,by){
+  if(!R.recipes||!R.recipes.length)return null;const cx=bx,cy=by-it.s*.45;let best=null,bd=52;
+  for(const o of items){if(o===it||!o.rect||isHidden(o)||(o.state!=="loose"&&o.state!=="slot"))continue;const rec=recipeFor(it.key,o.key);if(!rec)continue;
+    const d=Math.hypot(o.rect[0]+o.rect[2]/2-cx,o.rect[1]+o.rect[3]/2-cy);if(d<bd){bd=d;best={o,rec}}}
+  return best;
+}
+function combine(a,b,rec){
+  rec.done=true;
+  const base=b.slot?{x:b.slot.x,y:b.slot.y,z:b.slot.z}:{x:b.x,y:b.y,z:b.z||0};
+  for(const it of[a,b]){if(it.slot){it.slot.item=null;it.slot=null}const k=items.indexOf(it);if(k>=0)items.splice(k,1)}
+  const fd=R.finalDefs[rec.r];
+  const it=newItem(rec.r,fd?fd.n:rec.rn,fd?fd.ok:[],fd?fd.s:(SIZE[rec.r]||34),!fd);it.state="loose";
+  const[sx,sy]=freeSpot(base.z>.1?base.x+.7:base.x,base.z>.1?base.y+.7:base.y,it);it.x=sx;it.y=sy;
+  it.anim={t0:now,dur:480,fx:base.x,fy:base.y,fz:base.z};it.popT=now+450;items.push(it);
+  const q=P(base.x,base.y,base.z);puff(q[0],q[1]-10,12);sparkle(q[0],q[1]-24,12);SFX.win();
+  showToast(`✨ Ricomposto: ${it.n}!`);if(hint)hint=null;updateCount();dirty=true;check();
+}
 function bboxOf(o){
   if(o.kind==="item"&&o.it.rect){const r=o.it.rect;return[r[0],r[1],r[0]+r[2],r[1]+r[3]]}
   let a=1e9,b=1e9,c=-1e9,e=-1e9;
   for(const X of[o.x,o.x+o.w])for(const Y of[o.y,o.y+o.d])for(const Z of[o.z,o.z+o.h]){const p=P(X,Y,Z);a=Math.min(a,p[0]);b=Math.min(b,p[1]);c=Math.max(c,p[0]);e=Math.max(e,p[1])}
   return[a,b,c,e];
 }
-function cmp(a,b){const e=1e-4;
-  if(a.x+a.w<=b.x+e)return-1;if(b.x+b.w<=a.x+e)return 1;
-  if(a.y+a.d<=b.y+e)return-1;if(b.y+b.d<=a.y+e)return 1;
-  if(a.z+a.h<=b.z+e)return-1;if(b.z+b.h<=a.z+e)return 1;
+function cmp(a,b){const e=1e-4;let r=0;
+  const t=c=>{if(r===0)r=c;else if(r!==c)r=2};
+  if(a.x+a.w<=b.x+e)t(-1);else if(b.x+b.w<=a.x+e)t(1);
+  if(a.y+a.d<=b.y+e)t(-1);else if(b.y+b.d<=a.y+e)t(1);
+  if(a.z+a.h<=b.z+e)t(-1);else if(b.z+b.h<=a.z+e)t(1);
+  if(r===2)return 0;   // separati su assi in conflitto: non si coprono davvero, nessun vincolo
+  if(r!==0)return r;
   return(a.x+a.y+a.z)<(b.x+b.y+b.z)?-1:1}
 function topo(list){
   const n=list.length,bb=list.map(bboxOf),indeg=new Array(n).fill(0),adj=list.map(()=>[]);
   for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){const A=bb[i],B=bb[j];if(A[0]>=B[2]||B[0]>=A[2]||A[1]>=B[3]||B[1]>=A[3])continue;
-    if(cmp(list[i],list[j])<0){adj[i].push(j);indeg[j]++}else{adj[j].push(i);indeg[i]++}}
+    const c=cmp(list[i],list[j]);if(c<0){adj[i].push(j);indeg[j]++}else if(c>0){adj[j].push(i);indeg[i]++}}
   const done=new Array(n).fill(false),out=[],key=o=>o.x+o.w/2+o.y+o.d/2+o.z*.01;
   for(let k=0;k<n;k++){let best=-1,bk=1e9;
     for(let i=0;i<n;i++)if(!done[i]&&indeg[i]===0&&key(list[i])<bk){bk=key(list[i]);best=i}
@@ -1333,6 +1444,7 @@ function toggleOpen(op){
 }
 function slotCenter(s){const p=P(s.x,s.y,s.z);return s.plane==="top"?[p[0],p[1]-s.cap/2]:p}
 function findTarget(it,bx,by){
+  if(it.part)return null;
   let best=null,bd=52;const cx=bx,cy=by-it.s*.45;
   for(const s of R.slots){if((s.item&&s.item!==it)||!slotOn(s)||!fits(it,s))continue;const c=slotCenter(s);const d=Math.hypot(c[0]-cx,c[1]-cy);if(d<bd){bd=d;best=s}}
   return best;
@@ -1364,7 +1476,8 @@ cv.addEventListener("pointermove",e=>{
   const p=toWorld(s);
   if(drag&&drag.pending){if(Math.hypot(s.x-drag.sx0,s.y-drag.sy0)<8)return;const it=drag.it;drag.pending=false;
     if(it.slot){it.slot.item=null;it.slot=null}it.state="drag";it.anim=null;it.bad=false;SFX.pick();}
-  if(drag){drag.bx=p.x+drag.dx;drag.by=p.y+drag.dy;const t=findTarget(drag.it,drag.bx,drag.by);if(t!==drag.target&&t)SFX.ui();drag.target=t;dirty=true;return}
+  if(drag){drag.bx=p.x+drag.dx;drag.by=p.y+drag.dy;const cb=findCombo(drag.it,drag.bx,drag.by);if(cb&&(!drag.combo||drag.combo.o!==cb.o))SFX.ui();drag.combo=cb;
+    const t=cb?null:findTarget(drag.it,drag.bx,drag.by);if(t!==drag.target&&t)SFX.ui();drag.target=t;dirty=true;return}
   if(pan){const z=Z();cam.x=pan.cx-(s.x-pan.sx)/z;cam.y=pan.cy-(s.y-pan.sy)/z;clampCam();dirty=true;return}
   if(e.pointerType==="mouse"&&R){const h=pickItem(p);const c=h?null:(pickCarton(p)||pickOpen(p));if(h!==hover){hover=h;dirty=true}cv.style.cursor=h?"grab":c?"pointer":(cam.z>1?"move":"default")}
 });
@@ -1383,6 +1496,8 @@ document.getElementById("zFit").onclick=()=>{cam.z=1;cam.x=home.x;cam.y=home.y;c
 
 function endDrag(){
   if(!drag)return;const it=drag.it,t=drag.target;
+  if(drag.combo){const{o,rec}=drag.combo;drag=null;combine(it,o,rec);return}
+  if(it.part&&!t){const c=[it.rect?it.rect[0]+it.rect[2]/2:drag.bx,drag.by-it.s*.45];if(R.slots.some(s=>!s.item&&Math.hypot(slotCenter(s)[0]-c[0],slotCenter(s)[1]-c[1])<50))showToast(`${it.n}: sembra incompleto… uniscilo a un altro pezzo`)}
   if(t&&RULE.errs&&!allowed(it,t)){
     errors++;it.flash=now;SFX.wrong();
     const[sx,sy]=freeSpot(clamp(t.x,.6,N-.6)+.7,clamp(t.y,.6,N-.6)+.7,it);
@@ -1460,6 +1575,7 @@ function settingsMenu(after){
   refresh();
 }
 function tapItem(it){
+  if(it.part){SFX.tick();showToast(`${it.n}: è un pezzo, trascinalo su quello giusto per ricomporlo`);return}
   const pz=(R.puzzles||[]).find(p=>p.item===it.key&&!p.solved);
   if(pz){if(it.state==="slot")openPuzzle(pz);else showToast(pz.needPlace);return}
   const cl=R.clues&&R.clues[it.key];
@@ -1468,6 +1584,11 @@ function tapItem(it){
 }
 function doHint(){
   if(finished)return;
+  const vis=k=>items.find(i=>i.key===k&&(i.state==="loose"||i.state==="slot")&&!isHidden(i)&&i.rect);
+  for(const r of(R.recipes||[])){if(r.done)continue;const A=vis(r.a),B=vis(r.b);
+    if(A&&B){hint={it:A,it2:B,t0:now};showToast(`🔧 ${A.n} + ${B.n} stanno bene insieme`);dirty=true;return}
+    const hidden=[r.a,r.b].map(k=>items.find(i=>i.key===k)).find(i=>i&&i.slot&&i.slot.owner&&i.slot.owner.p<.85);
+    if(hidden&&(A||B)){hint={op:hidden.slot.owner,t0:now};showToast(`🔧 Un pezzo è nascosto: prova ad aprire ${hidden.slot.owner.label}`);dirty=true;return}}
   const pzl=(R.puzzles||[]).find(p=>!p.solved);
   if(pzl&&items.every(i=>i.state==="slot"&&allowed(i,i.slot))){showToast("🧩 "+pzl.hint);return}
   const it=items.find(i=>i.bad)||items.find(i=>i.state==="loose")||items.find(i=>i.state==="slot"&&!allowed(i,i.slot));
