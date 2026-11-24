@@ -31,7 +31,7 @@ button.primary{background:var(--accent);color:#fff;padding:11px 26px;font-size:1
 #hud .sp{flex:1;pointer-events:none}
 .pill{background:rgba(42,30,48,.72);color:#fff8ef;border-radius:999px;padding:6px 12px;font-weight:800;font-size:14px;white-space:nowrap;
   -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border:2px solid rgba(255,255,255,.15)}
-#timer,#errs{display:none}
+#timer,#errs,#puz{display:none}
 #timer.low{background:#c8414a;animation:blink 1s infinite}
 @keyframes blink{50%{opacity:.55}}
 #hud button{width:40px;height:40px;border-radius:50%;padding:0;font-size:18px;box-shadow:0 2px 0 var(--ink);display:flex;align-items:center;justify-content:center}
@@ -63,6 +63,33 @@ button.primary{background:var(--accent);color:#fff;padding:11px 26px;font-size:1
 @keyframes rot{0%,30%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
 @media (orientation:portrait) and (max-width:700px){#rotate.on{display:flex}}
 @media (max-width:560px),(max-height:420px){#hud button{width:36px;height:36px;font-size:16px}.pill{font-size:13px;padding:5px 10px}}
+.pzb{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center;margin:6px 0 14px}
+.pzb .w100{width:100%}
+.dig{display:flex;flex-direction:column;align-items:center;gap:5px}
+.dig span{font-size:34px;font-weight:900;width:54px;height:58px;line-height:58px;background:#2b2d42;color:#ffd60a;border-radius:12px;border:3px solid var(--ink);font-variant-numeric:tabular-nums}
+.sm{padding:3px 14px;font-size:16px}
+.bulb{width:52px;height:60px;border-radius:50% 50% 45% 45%;border:3px solid var(--ink);box-shadow:inset -7px -7px 0 rgba(0,0,0,.15);font-size:20px;color:#888}
+.tiles{display:grid;grid-template-columns:repeat(3,54px);gap:6px}
+.tile{width:54px;height:54px;border-radius:8px;border:3px solid var(--ink);background:#e9e4dc;padding:0}
+.tile.on{background:#4cc9f0}
+.keys{gap:4px}
+.key{width:48px;height:96px;border-radius:0 0 12px 12px;background:#fff;font-weight:900;padding:0;align-items:flex-end;display:flex;justify-content:center;padding-bottom:8px}
+.seq{font-size:22px;font-weight:900;letter-spacing:2px;min-height:30px}
+.opt{font-size:18px;padding:10px 14px}
+.lbl2{width:70px;text-align:right;font-weight:800;align-self:center}
+.row2{display:flex;gap:8px;justify-content:center;width:100%}
+.shake{animation:shake2 .4s}
+@keyframes shake2{20%{transform:translateX(-9px)}40%{transform:translateX(9px)}60%{transform:translateX(-6px)}80%{transform:translateX(5px)}}
+.overlay.side{background:transparent;justify-content:flex-start;align-items:flex-start;pointer-events:none}
+.overlay.side .card{pointer-events:auto;margin:max(58px,calc(env(safe-area-inset-top) + 52px)) 0 10px max(10px,env(safe-area-inset-left));max-width:min(330px,90%);max-height:calc(100% - 70px);text-align:left;padding:14px 16px}
+.overlay.side .card h2{font-size:20px;margin:0 0 6px}
+.sws{display:flex;flex-wrap:wrap;gap:6px}
+.sw{width:30px;height:30px;border-radius:50%;padding:0;box-shadow:none;font-size:13px}
+.sw.on{outline:3px solid var(--accent);outline-offset:2px}
+@media (max-height:520px){.card{padding:10px 18px}.card .big{font-size:28px;margin:0}.card h2{font-size:19px;margin:2px 0 4px}.card p{font-size:14px;margin:0 0 6px;line-height:1.35}
+ .card .year{font-size:30px}.pzb{margin:4px 0 8px;gap:8px}.dig span{height:42px;line-height:42px;font-size:26px;width:44px}.sm{padding:1px 12px}
+ .bulb{width:42px;height:48px}.tile{width:40px;height:40px}.tiles{grid-template-columns:repeat(3,40px)}.key{height:66px;width:42px}
+ .clockui svg{width:110px;height:110px}button.primary{padding:8px 22px;font-size:15px}.set{gap:8px}}
 </style>
 </head>
 <body>
@@ -70,10 +97,11 @@ button.primary{background:var(--accent);color:#fff;padding:11px 26px;font-size:1
 <div id="wrap"><div id="holder">
   <canvas id="cv"></canvas>
   <div id="hud">
-    <span class="pill" id="count"></span><span class="pill" id="timer"></span><span class="pill" id="errs"></span>
+    <span class="pill" id="count"></span><span class="pill" id="puz"></span><span class="pill" id="timer"></span><span class="pill" id="errs"></span>
     <span class="sp"></span>
     <button id="hintB" title="Suggerimento">💡</button>
     <button id="roomsB" title="Stanze">🏠</button>
+    <button id="lookB" title="Arreda la stanza">🎨</button>
     <button id="musicB" title="Musica">🎵</button>
     <button id="setB" title="Impostazioni">⚙️</button>
     <button id="restartB" title="Ricomincia la stanza">↺</button>
@@ -93,180 +121,226 @@ const HOUSES=[
  {year:"2024",name:"Una stanza in più",story:"Questa volta la stanza da sistemare non è per me."}
 ];
 const W1="#c99263";
-// Ogni oggetto: [emoji, nome, posti ammessi, dimensione]. Ci sono più posti che oggetti:
-// la collocazione è precisa, ma dove metterlo (tra i posti sensati) lo decidi tu.
+// dimensione (ingombro in px) di ogni oggetto: decide in quali posti entra
+const SIZE={teddy:42,alarm:30,books:38,bookrow:40,train:36,dino:38,pencils:28,notebook:32,crayons:30,robot:38,ball:32,torch:26,desklamp:36,piggy:30,cube:24,car:32,backpack:42,
+ plant:34,bigplant:56,basil:30,globe:34,laptop:42,mug:26,cups:34,radio:38,noodles:28,milk:32,juice:26,guitar:60,shoes:38,slippers:36,headphones:30,toothbrush:28,soap:26,shampoo:28,
+ gel:28,sponge:26,duck:28,tp:28,basket:44,laundry:44,razor:24,toothpaste:30,towels:36,hairdryer:32,cotton:26,bathsalts:26,cactus:28,salt:22,pepper:22,pan:40,pot:40,teapot:34,kettle:32,
+ recipe:36,plates:40,bowls:34,glasses:30,fruitbowl:38,apples:30,cheese:32,eggs:34,butter:26,strawberries:30,jar:26,toaster:36,board:40,vase:30,flowers:32,perfume:24,candle:22,
+ pajama:36,socks:30,shirt:36,sweater:36,dress:40,scarf:38,lamp:32,floorlamp:50,jewelry:30,hairbrush:30,hat:40,phone:22,suitcase:50,yarn:30,cushion:40,tv:62,joypad:28,console:40,
+ remote:22,records:40,camera:30,magazines:36,boardgames:40,speaker:32,bread:44,wine:26,oil:24,grapes:28,coffeemaker:34,monitor:54,keyboard:36,mouse:18,binders:38,trophy:26,
+ pencup:24,printer:44,bottle:22,cream:22,rattle:24,blocks:32,nightlight:24,diapers:38,bunny:32,musicbox:28,puzzle:44,
+ drawing:46,ring:20,poster:50,map:56,photo:44,weddingphoto:46,painting:54,diploma:46,calendar:38,mirror:48,clock:40,star:40,moon:40};
+const I=(key,name,ok)=>[key,name,ok,SIZE[key]];
+const row=(r,b,kind,us,v,cap)=>us.forEach(u=>r.slot(b,kind,u,v,cap));
+const col=(r,b,kind,u,vs,cap)=>vs.forEach(v=>r.slot(b,kind,u,v,cap));
+// Ogni oggetto ha più posti sensati: la collocazione è precisa ma la scelta è tua.
 const ROOMS=[
 {h:0,name:"La mia cameretta",N:8,wall:["#fcdccb","#f5cab6"],wp:"stripe",floor:"#dcab7b",fp:"wood",
- cartons:[[2.0,2.4],[4.3,3.2]],
- items:[["🧸","Orsetto",["bed","bedin","shelf","chest"],44],["⏰","Sveglia",["nightstand","desk","shelf"],34],["📚","Libri",["shelf","desk","nightstand"],40],
-  ["🚂","Trenino",["shelf","chest","floor","desk"],36],["🦕","Dinosauro",["shelf","chest","floor","desk","bedin"],38],["✏️","Matite",["desk","drawer"],32],
-  ["📒","Quaderno",["desk","shelf","nightstand","drawer"],36],["🤖","Robot",["shelf","chest","desk","floor"],40],["🖼️","Disegno",["wall"],46],
-  ["⚽","Pallone",["floor","chest"],36],["🔦","Torcia",["drawer","nightstand","desk"],32]],
+ cartons:[[2.0,2.4],[4.3,3.2],[2.4,5.0]].slice(0,2).concat([[3.2,4.3]]),
+ items:[I("teddy","Orsetto",["bed","bedin","shelf","chest"]),I("alarm","Sveglia",["nightstand","desk","shelf"]),I("books","Libri",["shelf","desk","nightstand"]),
+  I("bookrow","Fila di libri",["shelf"]),I("train","Trenino",["shelf","chest","floor","desk"]),I("dino","Dinosauro",["shelf","chest","floor","desk","bedin"]),
+  I("pencils","Matite",["desk"]),I("notebook","Quaderni",["desk","shelf","nightstand","drawer"]),I("crayons","Pastelli",["desk","drawer","shelf"]),
+  I("robot","Robot",["shelf","chest","desk","floor"]),I("drawing","Disegno",["wall"]),I("poster","Poster",["wall"]),I("ball","Pallone",["floor","chest"]),
+  I("torch","Torcia",["drawer","nightstand","desk"]),I("desklamp","Lampada",["desk","nightstand"]),I("piggy","Salvadanaio",["shelf","desk","nightstand","sill"]),
+  I("cube","Cubo magico",["shelf","desk","chest","drawer"]),I("car","Macchinina",["floor","shelf","chest"]),I("backpack","Zaino",["floor"]),
+  I("plant","Piantina",["sill","shelf","desk"]),I("globe","Mappamondo",["desk","shelf"])],
  build(r){
   r.window("R",3.2,5.2,2,3.8);
   r.rug(1.4,2.0,3.2,2.6,"#a3d3e2",true);
   const b=r.bed(0,5,3.8,2.2,"#f6a183"); r.slot(b.pillow,"bed",.5,.5,46); r.bedCovers(b,2,44);
   const ns=r.box(0,3.9,0,.95,.95,1.2,"#c38d61"); r.slot(ns,"nightstand",.5,.5,38); r.drawer(ns,"x",.6,1.05,{n:2,cap:32});
-  const dk=r.table(4.4,.15,2.8,1.3,1.9,"#e6b07b"); [.2,.5,.8].forEach(u=>r.slot(dk,"desk",u,.5,40));
+  const dk=r.table(4.4,.15,2.8,1.3,1.9,"#e6b07b"); row(r,dk,"desk",[.14,.38,.62,.86],.5,40);
   r.chair(5.4,1.9,"#9fcbe9");
-  const sh=r.shelfL(.8,2.6,3,W1); [.14,.38,.62,.86].forEach(v=>r.slot(sh,"shelf",.5,v,40));
-  const tc=r.box(5.6,5.4,0,1.6,1.1,1.1,"#f7cf68"); r.deco(tc,{t:"fy",u0:0,u1:1,w0:.72,w1:.82,c:"#d9a73a"}); [.3,.72].forEach(u=>r.slot(tc,"chest",u,.5,42));
-  r.wallSlot("R",1.0,3.1,50); r.wallSlot("R",2.4,3.1,50); r.wallSlot("L",6.1,3.2,50);
-  r.floorSlot(6.9,3.7,40); r.floorSlot(1.9,4.5,40); r.floorSlot(7.3,7.2,40);
+  const sh=r.shelfL(.8,2.6,3,W1); col(r,sh,"shelf",.5,[.14,.38,.62,.86],40);
+  const sh2=r.shelfL(.8,3.75,3,W1); col(r,sh2,"shelf",.5,[.14,.38,.62,.86],38);
+  const tc=r.box(5.6,5.4,0,1.6,1.1,1.1,"#f7cf68"); r.deco(tc,{t:"fy",u0:0,u1:1,w0:.72,w1:.82,c:"#d9a73a"}); row(r,tc,"chest",[.2,.5,.8],.5,40);
+  r.sill("R",3.2,5.2,2,[.3,.7],32);
+  r.wallSlot("R",1.0,3.1,52); r.wallSlot("R",2.4,3.1,52); r.wallSlot("L",6.1,3.2,52);
+  r.floorSlot(6.9,3.7,42); r.floorSlot(1.9,4.5,42); r.floorSlot(7.3,7.2,44); r.floorSlot(4.9,6.9,44); r.floorSlot(3.2,1.0,42);
  }},
 {h:1,name:"La camera",N:8,wall:["#e3eaf3","#d5dfeb"],wp:"plain",floor:"#cdbb9f",fp:"tile",
- cartons:[[3.0,3.4],[5.2,4.3]],
- items:[["🧸","Orsetto",["bed","bedin","shelf","bookcase"],44],["💻","Portatile",["desk","bed"],44],["☕","Tazza",["desk","fridge","shelf"],32],
-  ["🪴","Piantina",["shelf","bookcase","desk","floor","fridge"],40],["⏰","Sveglia",["shelf","desk","bookcase"],34],["📚","Libri",["bookcase","shelf","desk"],40],
-  ["📚","Libri",["bookcase","shelf","desk"],40],["📻","Radio",["bookcase","shelf","desk","fridge"],38],["🍜","Noodles",["fridge","desk","fridgein"],34],
-  ["🥛","Latte",["fridgein"],34],["🧃","Succo di frutta",["fridgein","desk"],32],["🗺️","Mappa",["wall"],56],["🎸","Chitarra",["floor"],60],["👟","Scarpe",["floor"],36]],
+ cartons:[[3.0,3.4],[5.2,4.3],[3.2,5.6]],
+ items:[I("teddy","Orsetto",["bed","bedin","shelf","bookcase"]),I("laptop","Portatile",["desk","bed"]),I("mug","Tazza",["desk","fridge","shelf","nightstand"]),
+  I("plant","Piantina",["shelf","bookcase","desk","floor","fridge"]),I("alarm","Sveglia",["shelf","desk","bookcase","nightstand"]),I("books","Libri",["bookcase","shelf","desk"]),
+  I("books","Libri",["bookcase","shelf","desk"]),I("bookrow","Fila di libri",["bookcase"]),I("radio","Radio",["bookcase","shelf","desk","fridge"]),
+  I("noodles","Noodles",["fridge","desk","fridgein"]),I("milk","Latte",["fridgein"]),I("juice","Succo di frutta",["fridgein","desk"]),
+  I("map","Mappa",["wall"]),I("poster","Poster",["wall"]),I("calendar","Calendario",["wall"]),I("guitar","Chitarra",["floor"]),I("shoes","Scarpe",["floor"]),
+  I("backpack","Zaino",["floor"]),I("desklamp","Lampada",["desk","nightstand"]),I("headphones","Cuffie",["desk","bed","nightstand"])],
  build(r){
   r.window("R",5.7,7.4,2,3.8);
   const b=r.bed(0,5.4,3.6,1.8,"#86acd9"); r.slot(b.pillow,"bed",.5,.5,46); r.bedCovers(b,1,46);
-  const dk=r.table(2.4,.15,3,1.3,1.9,"#ece6da"); [.18,.5,.82].forEach(u=>r.slot(dk,"desk",u,.5,46));
+  const ns=r.box(0,4.4,0,.85,.8,1.1,"#b0a08a"); r.slot(ns,"nightstand",.5,.5,38);
+  const dk=r.table(2.4,.15,3,1.3,1.9,"#ece6da"); row(r,dk,"desk",[.14,.38,.62,.86],.5,44);
   r.chair(3.6,1.9,"#7a8b97");
-  const sh=r.shelfR(2.6,3.4,2.6,"#ece6da"); [.18,.5,.82].forEach(u=>r.slot(sh,"shelf",u,.5,40));
+  const sh=r.shelfR(2.6,3.4,2.6,"#ece6da"); row(r,sh,"shelf",[.18,.5,.82],.5,40);
   const pl=r.bookcaseL(.9,2.4,[.3,1.8,3.3],"#a87550"); pl.forEach(p=>[.3,.7].forEach(v=>r.slot(p,"bookcase",.5,v,42)));
-  const fr=r.cabinetR({x:6.4,w:1.25,d:1.15,h:1.75,c:"#f4f4f4",inner:"#dff0f8",doors:[{hinge:"L"}],kind:"fridgein",cap:36,n:2,label:"il frigo",fridge:true}); r.slot(fr.top,"fridge",.5,.5,40);
-  r.wallSlot("L",6.3,3.1,58); r.wallSlot("R",1.2,3.2,58);
-  r.floorSlot(.8,4.5,62); r.floorSlot(7.2,4.8,40); r.floorSlot(4.6,6.8,62);
+  const fr=r.cabinetR({x:6.4,w:1.25,d:1.15,h:1.75,c:"#f4f4f4",inner:"#dff0f8",doors:[{hinge:"L"}],kind:"fridgein",cap:36,n:2,label:"il frigo",fridge:true}); r.slot(fr.top,"fridge",.5,.5,40); r.tag("fridge",fr.op);
+  r.wallSlot("L",6.3,3.1,58); r.wallSlot("L",4.4,3.2,52); r.wallSlot("R",1.2,3.2,58);
+  r.floorSlot(2.0,4.4,62); r.floorSlot(7.2,4.8,44); r.floorSlot(4.6,6.8,62); r.floorSlot(6.9,3.0,44);
  }},
 {h:1,name:"Il bagno condiviso",N:6,wall:["#cfe9ec","#c0dfe3"],wp:"tile",floor:"#eeeae3",fp:"tile",
  cartons:[[2.6,3.7],[4.3,3.9]],
- items:[["🪥","Spazzolino",["sink","shelf"],30],["🧼","Sapone",["sink","tub","shelf"],30],["🧴","Shampoo",["shelf","tub","sink"],34],["🧽","Spugna",["tub","shelf","sink"],30],
-  ["🦆","Paperella",["tub","shelf"],34],["🧻","Carta igienica",["tank","shelf","floor"],32],["🧺","Cesto",["floor"],40],["🪒","Rasoio",["shelf","sink"],28]],
+ items:[I("toothbrush","Spazzolino",["sink","shelf"]),I("soap","Sapone",["sink","tub","shelf"]),I("shampoo","Shampoo",["shelf","tub","sink"]),I("sponge","Spugna",["tub","shelf","sink"]),
+  I("duck","Paperella",["tub","shelf"]),I("tp","Carta igienica",["tank","shelf","floor","stool"]),I("basket","Cesto",["floor"]),I("razor","Rasoio",["shelf","sink"]),
+  I("toothpaste","Dentifricio",["sink","shelf"]),I("towels","Asciugamani",["stool","shelf","tank","floor"]),I("hairdryer","Phon",["shelf","stool","sink"]),
+  I("cotton","Cotone",["shelf","sink"]),I("bathsalts","Sali da bagno",["tub","shelf","stool"]),I("plant","Piantina",["shelf","tank","stool"])],
  build(r){
   const t=r.box(0,2.4,0,1.7,3.6,1.2,"#fbfbfb"); r.deco(t,{t:"rect",u0:.12,v0:.05,u1:.88,v1:.95,c:"#a6d8e6"}); r.slot(t,"tub",.5,.55,36); r.slot(t,"tub",.5,.15,34);
-  const sl=r.shelfL(2.8,2.6,1.8,"#ffffff"); [.28,.75].forEach(v=>r.slot(sl,"shelf",.5,v,36));
+  const sl=r.shelfL(2.8,2.6,1.8,"#ffffff"); col(r,sl,"shelf",.5,[.2,.5,.8],34);
   const s=r.counterR(.3,1.9,1.9,"#f5f0e6","#ece6da"); r.deco(s,{t:"ell",u:.5,v:.5,r:.32,c:"#cfdde2"}); [.13,.87].forEach(u=>r.slot(s,"sink",u,.45,32));
   r.frame("R",.5,2.0,2.8,4.2,"#d7eef5");
-  const rz=r.shelfR(.6,2.45,1.4,"#ffffff"); [.25,.75].forEach(u=>r.slot(rz,"shelf",u,.5,34));
-  r.box(3.4,.42,0,.9,1.0,.9,"#fdfdfd"); const tank=r.box(3.4,0,0,.9,.42,1.7,"#fdfdfd"); r.slot(tank,"tank",.5,.5,34);
-  r.floorSlot(5.0,1.2,42); r.floorSlot(5.4,5.5,42);
+  const rz=r.shelfR(.6,2.45,1.4,"#ffffff"); row(r,rz,"shelf",[.18,.5,.82],.5,32);
+  r.box(3.4,.42,0,.9,1.0,.9,"#fdfdfd"); const tank=r.box(3.4,0,0,.9,.42,1.7,"#fdfdfd"); r.slot(tank,"tank",.5,.5,36);
+  const st=r.box(4.8,4.9,0,.85,.85,.9,"#f6bd60"); col(r,st,"stool",.5,[.28,.72],38);
+  r.floorSlot(5.0,1.2,46); r.floorSlot(2.5,1.8,44); r.floorSlot(5.5,2.8,44);
  }},
 {h:2,name:"La cucina",N:8,wall:["#e6f2dc","#d6e9cb"],wp:"plain",floor:"#ece5d6",fp:"checker",
- cartons:[[.9,5.4],[6.2,3.6]],
- items:[["🧂","Sale",["counter","pensile","table"],30],["🌿","Basilico",["counter","table"],40],["🍳","Padella",["stove","pensile"],44],["🫖","Teiera",["stove","counter","table"],40],
-  ["📖","Ricettario",["counter","pensile"],38],["🍽️","Piatti",["pensile"],42],["🍷","Bicchieri",["pensile","table"],36],["☕","Tazze",["pensile","table","counter"],36],
-  ["🍎","Mele",["table","counter","fridgein"],36],["🧀","Formaggio",["fridgein"],34],["🥛","Latte",["fridgein"],36],["🥚","Uova",["fridgein","counter"],32],["🕰️","Orologio",["wall"],48]],
+ cartons:[[.9,5.4],[6.2,3.6],[1.0,3.4]],
+ items:[I("salt","Sale",["counter","pensile","table"]),I("pepper","Pepe",["counter","pensile","table"]),I("basil","Basilico",["counter","table","sill"]),
+  I("pan","Padella",["stove","pensile"]),I("pot","Pentola",["stove","counter"]),I("teapot","Teiera",["stove","counter","table"]),I("recipe","Ricettario",["counter","pensile"]),
+  I("plates","Piatti",["pensile"]),I("glasses","Bicchieri",["pensile","table"]),I("cups","Tazze",["pensile","table","counter"]),I("fruitbowl","Fruttiera",["table","counter"]),
+  I("cheese","Formaggio",["fridgein"]),I("milk","Latte",["fridgein"]),I("eggs","Uova",["fridgein","counter"]),I("butter","Burro",["fridgein"]),
+  I("jar","Barattolo",["counter","pensile","fridgein"]),I("toaster","Tostapane",["counter"]),I("board","Tagliere",["counter","table"]),I("vase","Fiori",["table","sill"]),I("clock","Orologio",["wall"])],
  build(r){
-  const c1=r.counterR(0,2.2,1.9,"#f6f1e7","#7b7672"); [.2,.5,.8].forEach(u=>r.slot(c1,"counter",u,.5,40));
-  const st=r.stoveR(2.2,1.3,1.9); [.28,.74].forEach(u=>r.slot(st,"stove",u,.5,44));
-  const c2=r.counterR(3.5,1.9,1.9,"#f6f1e7","#7b7672"); [.3,.72].forEach(u=>r.slot(c2,"counter",u,.5,40));
+  const c1=r.counterR(0,2.2,1.9,"#f6f1e7","#7b7672"); row(r,c1,"counter",[.2,.5,.8],.5,40);
+  const st=r.stoveR(2.2,1.3,1.9); row(r,st,"stove",[.28,.74],.5,44);
+  const c2=r.counterR(3.5,1.9,1.9,"#f6f1e7","#7b7672"); row(r,c2,"counter",[.28,.72],.5,40);
   r.cabinetR({x:5.6,w:1.4,d:1.25,h:4.2,c:"#f7f7f7",inner:"#dff0f8",shelves:[1.5,2.8],doors:[{hinge:"L"}],kind:"fridgein",cap:38,n:2,label:"il frigorifero",fridge:true});
-  const s1=r.shelfR(.2,3.4,1.9,W1); [.28,.74].forEach(u=>r.slot(s1,"pensile",u,.5,42));
-  const s2=r.shelfR(3.6,3.4,1.7,W1); [.28,.74].forEach(u=>r.slot(s2,"pensile",u,.5,40));
-  r.window("L",2.2,4.4,1.9,3.8);
-  const tb=r.table(2.6,3.8,2.4,1.6,1.7,"#b77f4c"); [.22,.5,.78].forEach(u=>r.slot(tb,"table",u,.5,40));
+  const s1=r.shelfR(.2,3.4,1.9,W1); row(r,s1,"pensile",[.28,.74],.5,42);
+  const s2=r.shelfR(3.6,3.4,1.7,W1); row(r,s2,"pensile",[.28,.74],.5,40);
+  r.window("L",2.2,4.4,1.9,3.8); r.sill("L",2.2,4.4,1.9,[.3,.7],32);
+  const tb=r.table(2.6,3.8,2.4,1.6,1.7,"#b77f4c"); row(r,tb,"table",[.15,.38,.62,.85],.5,38);
   r.chair(2.9,5.7,"#ef9a7b"); r.chair(4.2,5.7,"#ef9a7b");
   r.wallSlot("L",6.0,3.2,50); r.wallSlot("L",1.0,3.2,50);
  }},
 {h:2,name:"La camera da letto",N:8,wall:["#f1e3f2","#e6d4e9"],wp:"stripe",floor:"#c4946a",fp:"wood",
- cartons:[[5.6,3.4],[6.0,5.7]],
- items:[["🧸","Orsetto",["bed","bedin","dresser"],44],["⏰","Sveglia",["nightstand","dresser"],34],["📕","Libro",["nightstand","bed","dresser","bedin"],34],
-  ["🧴","Profumo",["dresser","nightstand"],34],["🕯️","Candela",["dresser","nightstand"],32],["👚","Pigiama",["bedin","drawer"],40],["🧦","Calzini",["drawer"],32],
-  ["🗺️","Mappa",["wall"],58],["🖼️","Foto",["wall","dresser"],46],["🪴","Pianta",["floor","dresser"],52],["🩴","Ciabatte",["floor"],32]],
+ cartons:[[5.6,3.4],[6.0,5.7],[3.4,7.0]],
+ items:[I("teddy","Orsetto",["bed","bedin","dresser"]),I("alarm","Sveglia",["nightstand","dresser"]),I("books","Libri",["nightstand","bed","dresser","bedin"]),
+  I("perfume","Profumo",["dresser","nightstand"]),I("candle","Candela",["dresser","nightstand","sill"]),I("pajama","Pigiama",["bedin","drawer"]),I("socks","Calzini",["drawer"]),
+  I("map","Mappa",["wall"]),I("photo","Foto",["wall","dresser"]),I("mirror","Specchio",["wall"]),I("bigplant","Pianta",["floor"]),I("slippers","Ciabatte",["floor"]),
+  I("lamp","Abat-jour",["nightstand","dresser"]),I("jewelry","Portagioie",["dresser","nightstand","drawer"]),I("hairbrush","Spazzola",["dresser","drawer","nightstand"]),
+  I("laundry","Cesto dei panni",["floor"]),I("hat","Cappello",["dresser","bed"]),I("phone","Telefono",["nightstand","bed","dresser"])],
  build(r){
   r.rug(2.0,3.0,3.4,3.6,"#e3d0a8");
-  const b=r.bed(0,3.0,4.2,3.0,"#9fcb9c"); [.25,.75].forEach(v=>r.slot(b.pillow,"bed",.5,v,46)); r.bedCovers(b,2,42);
-  const n1=r.box(0,2.0,0,.9,.9,1.2,"#b07a52"); r.slot(n1,"nightstand",.5,.5,38);
-  const n2=r.box(0,6.1,0,.9,.9,1.2,"#b07a52"); r.slot(n2,"nightstand",.5,.5,38);
-  const d=r.box(3.0,.1,0,2.6,1.1,1.9,"#d9b088"); [.3,.56].forEach(w=>r.deco(d,{t:"fy",u0:.04,u1:.96,w0:w,w1:w+.02,c:"#a8845e"})); [.2,.5,.8].forEach(u=>r.slot(d,"dresser",u,.5,46));
-  r.drawer(d,"y",1.15,1.7,{n:2,cap:34});
-  r.frame("R",3.3,5.3,2.5,4.0,"#d7eef5");
-  r.window("R",6.2,7.6,2,3.8);
-  r.wallSlot("L",3.6,3.1,60); r.wallSlot("L",5.4,3.1,60); r.wallSlot("R",.9,3.0,48); r.wallSlot("R",2.4,3.0,48);
-  r.floorSlot(7.2,2.2,54); r.floorSlot(4.8,5.4,40); r.floorSlot(2.6,7.0,54);
+  const b=r.bed(0,3.0,4.2,3.0,"#9fcb9c"); col(r,b.pillow,"bed",.5,[.25,.75],46); r.bedCovers(b,2,42);
+  const n1=r.box(0,2.0,0,.9,.9,1.2,"#b07a52"); r.slot(n1,"nightstand",.5,.5,38); r.drawer(n1,"x",.6,1.05,{n:1,cap:32});
+  const n2=r.box(0,6.1,0,.9,.9,1.2,"#b07a52"); r.slot(n2,"nightstand",.5,.5,38); r.drawer(n2,"x",.6,1.05,{n:1,cap:32});
+  const d=r.box(3.0,.1,0,2.6,1.1,1.9,"#d9b088"); [.3,.56].forEach(w=>r.deco(d,{t:"fy",u0:.04,u1:.96,w0:w,w1:w+.02,c:"#a8845e"})); row(r,d,"dresser",[.14,.38,.62,.86],.5,40);
+  r.drawer(d,"y",1.15,1.7,{n:2,cap:36});
+  r.window("R",6.2,7.6,2,3.8); r.sill("R",6.2,7.6,2,[.3,.7],30);
+  r.wallSlot("L",3.6,3.1,60); r.wallSlot("L",5.4,3.1,60); r.wallSlot("R",.9,3.0,50); r.wallSlot("R",2.4,3.0,50); r.wallSlot("R",4.3,3.2,50);
+  r.floorSlot(7.2,2.2,58); r.floorSlot(4.8,5.4,46); r.floorSlot(2.6,7.0,58); r.floorSlot(7.3,7.3,46);
  }},
 {h:2,name:"Il bagno",N:6,wall:["#f6e5cf","#eed7bd"],wp:"tile",floor:"#ddd7cd",fp:"tile",
- cartons:[[3.4,3.6]],
- items:[["🧴","Bagnoschiuma",["shower","shelf","sink"],34],["🧽","Spugna",["shower","sink","shelf"],30],["🪥","Spazzolino",["sink","shelf"],30],
-  ["🧼","Sapone",["sink","shower"],30],["🧺","Cesto",["washer","floor"],40],["🌵","Cactus",["shelf","washer"],32],["🪒","Rasoio",["sink","shelf"],28]],
+ cartons:[[3.4,3.6],[4.6,1.8]],
+ items:[I("gel","Bagnoschiuma",["shower","shelf","sink"]),I("sponge","Spugna",["shower","sink","shelf"]),I("toothbrush","Spazzolino",["sink","shelf"]),
+  I("soap","Sapone",["sink","shower"]),I("basket","Cesto",["washer","floor"]),I("cactus","Cactus",["shelf","washer"]),I("razor","Rasoio",["sink","shelf"]),
+  I("towels","Asciugamani",["washer","floor","shelf"]),I("toothpaste","Dentifricio",["sink","shelf"]),I("hairdryer","Phon",["shelf","washer"]),
+  I("bathsalts","Sali da bagno",["shower","shelf"]),I("shampoo","Shampoo",["shower","shelf"]),I("cotton","Cotone",["shelf","sink"]),I("painting","Quadretto",["wall"])],
  build(r){
-  const sh=r.box(0,0,0,1.9,1.9,.25,"#fafafa"); r.deco(sh,{t:"ell",u:.5,v:.5,r:.1,c:"#b5b5b5"}); r.slot(sh,"shower",.28,.75,36); r.slot(sh,"shower",.75,.28,36);
+  const sh=r.box(0,0,0,1.9,1.9,.25,"#fafafa"); r.deco(sh,{t:"ell",u:.5,v:.5,r:.1,c:"#b5b5b5"}); r.slot(sh,"shower",.28,.75,36); r.slot(sh,"shower",.75,.28,36); r.slot(sh,"shower",.25,.25,32);
   r.box(.05,.9,3.7,.35,.2,.15,"#b8b8b8");
   const s=r.counterL(2.6,1.9,1.9,"#ffffff","#ebe5dc"); r.deco(s,{t:"ell",u:.45,v:.5,r:.32,c:"#d5e0e3"}); [.13,.87].forEach(v=>r.slot(s,"sink",.45,v,32));
   r.frame("L",2.7,4.4,2.6,4.1,"#d7eef5");
-  const w=r.box(2.6,.1,0,1.3,1.2,2.0,"#f6f6f6"); r.deco(w,{t:"fy",u0:.25,u1:.75,w0:.2,w1:.65,c:"#a7c0cc"}); r.slot(w,"washer",.5,.5,42);
-  const shr=r.shelfR(4.1,2.8,1.6,W1); [.2,.5,.8].forEach(u=>r.slot(shr,"shelf",u,.5,34));
-  r.floorSlot(5.2,1.6,42); r.floorSlot(1.8,5.3,42);
+  const w=r.box(2.6,.1,0,1.3,1.2,2.0,"#f6f6f6"); r.tag("washer",w); r.deco(w,{t:"fy",u0:.65,u1:.85,w0:.75,w1:.92,c:"#5c677d"}); r.deco(w,{t:"fy",u0:.25,u1:.75,w0:.2,w1:.65,c:"#a7c0cc"}); row(r,w,"washer",[.3,.72],.5,44);
+  const shr=r.shelfR(4.1,2.8,1.6,W1); row(r,shr,"shelf",[.18,.5,.82],.5,34);
+  const shl=r.shelfL(4.6,2.6,1.2,W1); col(r,shl,"shelf",.5,[.28,.72],34);
+  r.wallSlot("R",1.2,3.0,56);
+  r.floorSlot(5.2,1.6,46); r.floorSlot(1.8,5.3,46); r.floorSlot(4.6,5.3,46);
  }},
 {h:3,name:"Il soggiorno",N:8,wall:["#f4e8d8","#ebdcc7"],wp:"plain",floor:"#a87e5b",fp:"wood",
- cartons:[[5.4,4.6],[2.6,6.6]],
- items:[["📺","Televisore",["tv"],62],["🎮","Joypad",["tvstand","coffee","sofa"],30],["🧶","Gomitolo",["sofa","coffee"],34],["💐","Fiori",["coffee","tvstand","bookcase"],40],
-  ["🕯️","Candela",["coffee","bookcase","tvstand"],30],["💿","Dischi",["bookcase","tvstand"],34],["📚","Libri",["bookcase","coffee"],40],["📚","Libri",["bookcase","coffee"],40],
-  ["📷","Macchina fotografica",["bookcase","tvstand"],36],["🖼️","Foto di noi",["wall","bookcase"],50],["🪴","Pianta",["floor"],60]],
+ cartons:[[5.4,4.6],[2.6,6.6],[4.2,1.6]],
+ items:[I("tv","Televisore",["tv"]),I("joypad","Joypad",["tvstand","coffee","sofa"]),I("console","Console",["tvstand"]),I("remote","Telecomando",["coffee","sofa","tvstand","sidetable"]),
+  I("yarn","Gomitolo",["sofa","coffee"]),I("cushion","Cuscino",["sofa"]),I("flowers","Fiori",["coffee","tvstand","bookcase","sidetable","sill"]),
+  I("candle","Candela",["coffee","bookcase","tvstand","sidetable","sill"]),I("records","Dischi",["bookcase","tvstand"]),I("books","Libri",["bookcase","coffee"]),
+  I("books","Libri",["bookcase","coffee"]),I("bookrow","Fila di libri",["bookcase"]),I("camera","Macchina fotografica",["bookcase","tvstand"]),
+  I("weddingphoto","Foto di noi",["wall","bookcase"]),I("clock","Orologio",["wall"]),I("painting","Quadro",["wall"]),I("bigplant","Pianta",["floor"]),
+  I("floorlamp","Lampada",["floor"]),I("magazines","Riviste",["coffee","sidetable","sofa"]),I("boardgames","Giochi da tavolo",["bookcase","coffee"]),I("speaker","Cassa",["tvstand","bookcase","floor"])],
  build(r){
   r.rug(2.4,2.6,3.2,3.4,"#d5bf85");
-  const seat=r.sofaL(2.0,3.8,"#de7a6f"); [.25,.75].forEach(v=>r.slot(seat,"sofa",.4,v,40));
+  const seat=r.sofaL(2.0,3.8,"#de7a6f"); col(r,seat,"sofa",.4,[.2,.5,.8],40);
   const tv=r.box(2.8,.1,0,2.6,1.0,1.1,"#5a5258"); r.deco(tv,{t:"fy",u0:.04,u1:.48,w0:.15,w1:.85,c:"#6d646a"}); r.deco(tv,{t:"fy",u0:.52,u1:.96,w0:.15,w1:.85,c:"#6d646a"});
-  r.slot(tv,"tv",.45,.5,64); r.slot(tv,"tvstand",.1,.5,30); r.slot(tv,"tvstand",.88,.5,32);
-  const ct=r.table(3.2,3.3,1.8,1.3,.9,"#e2bf93"); [.2,.5,.8].forEach(u=>r.slot(ct,"coffee",u,.5,40));
+  r.slot(tv,"tv",.45,.5,64); r.slot(tv,"tvstand",.1,.5,40); r.slot(tv,"tvstand",.88,.5,40);
+  const ct=r.table(3.2,3.3,1.8,1.3,.9,"#e2bf93"); row(r,ct,"coffee",[.2,.5,.8],.5,40);
   const pl=r.bookcaseR(5.8,2.0,[.3,1.7,3.1],"#8a5a38"); pl.forEach(p=>[.28,.72].forEach(u=>r.slot(p,"bookcase",u,.5,42)));
-  r.window("L",6.0,7.6,2,3.8);
-  r.wallSlot("L",3.0,3.3,52); r.wallSlot("L",4.8,3.3,52); r.wallSlot("R",1.4,3.1,52);
-  r.floorSlot(7.2,2.0,62); r.floorSlot(.6,6.6,62);
+  const side=r.box(.2,6.0,0,.9,.9,1.0,"#c99263"); r.slot(side,"sidetable",.5,.5,40);
+  r.window("L",6.0,7.6,2,3.8); r.sill("L",6.0,7.6,2,[.3,.7],32);
+  r.wallSlot("L",3.0,3.3,56); r.wallSlot("L",4.8,3.3,56); r.wallSlot("R",1.4,3.1,56);
+  r.floorSlot(7.2,2.0,62); r.floorSlot(1.8,7.2,62); r.floorSlot(4.8,6.9,52);
  }},
 {h:3,name:"La cucina",N:8,wall:["#fde9d8","#f6dbc4"],wp:"tile",floor:"#ded5c6",fp:"tile",
- cartons:[[6.0,3.4],[1.8,5.8]],
- items:[["🫙","Barattolo",["counter","shelf"],34],["🍳","Padella",["stove","shelf"],44],["🥘","Pentola",["stove","counter"],42],["🥖","Pane",["counter","table"],44],
-  ["🧂","Sale",["counter","shelf","table"],30],["🌿","Basilico",["counter","table"],40],["🥣","Ciotole",["shelf","table"],38],["🍽️","Piatti",["shelf"],42],
-  ["☕","Tazze",["shelf","table","counter"],36],["🍾","Bottiglia",["table","counter","fridgein"],40],["🍇","Uva",["table","counter","fridgein"],36],
-  ["🧈","Burro",["fridgein"],32],["🥛","Latte",["fridgein"],36],["🍓","Fragole",["fridgein","table"],34]],
+ cartons:[[6.0,3.4],[1.8,5.8],[6.3,6.0]],
+ items:[I("jar","Barattolo",["counter","shelf"]),I("pan","Padella",["stove","shelf"]),I("pot","Pentola",["stove","counter"]),I("bread","Pane",["counter","table"]),
+  I("salt","Sale",["counter","shelf","table"]),I("basil","Basilico",["counter","table","sill"]),I("bowls","Ciotole",["shelf","table"]),I("plates","Piatti",["shelf"]),
+  I("cups","Tazze",["shelf","table","counter"]),I("wine","Bottiglia",["table","counter","fridgein"]),I("grapes","Uva",["table","counter","fridgein"]),
+  I("butter","Burro",["fridgein"]),I("milk","Latte",["fridgein"]),I("strawberries","Fragole",["fridgein","table"]),I("kettle","Bollitore",["stove","counter"]),
+  I("toaster","Tostapane",["counter"]),I("coffeemaker","Macchina del caffè",["counter"]),I("oil","Olio",["counter","shelf","table"]),
+  I("fruitbowl","Fruttiera",["table","counter"]),I("clock","Orologio",["wall"]),I("vase","Fiori",["table","sill"])],
  build(r){
-  const c0=r.counterR(0,1.3,1.9,"#8fb3c9","#f3eee6"); r.slot(c0,"counter",.5,.5,36);
-  const st=r.stoveR(1.3,1.3,1.9); [.28,.74].forEach(u=>r.slot(st,"stove",u,.5,44));
-  const c1=r.counterR(2.6,1.8,1.9,"#8fb3c9","#f3eee6"); [.28,.74].forEach(u=>r.slot(c1,"counter",u,.5,44));
+  const c0=r.counterR(0,1.3,1.9,"#8fb3c9","#f3eee6"); r.slot(c0,"counter",.5,.5,38);
+  const st=r.stoveR(1.3,1.3,1.9); row(r,st,"stove",[.28,.74],.5,44);
+  const c1=r.counterR(2.6,1.8,1.9,"#8fb3c9","#f3eee6"); row(r,c1,"counter",[.28,.74],.5,44);
   const cl=r.counterL(1.3,2.6,1.9,"#8fb3c9","#f3eee6"); r.deco(cl,{t:"ell",u:.45,v:.45,r:.32,c:"#cfd9dd"}); r.slot(cl,"counter",.45,.11,32); r.slot(cl,"counter",.45,.84,40);
-  const s1=r.shelfR(.2,3.4,1.4,"#a87550"); [.28,.74].forEach(u=>r.slot(s1,"shelf",u,.5,38));
-  const s2=r.shelfR(2.6,3.4,1.9,"#a87550"); [.2,.5,.8].forEach(u=>r.slot(s2,"shelf",u,.5,42));
+  const s1=r.shelfR(.2,3.4,1.4,"#a87550"); row(r,s1,"shelf",[.28,.74],.5,38);
+  const s2=r.shelfR(2.6,3.4,1.9,"#a87550"); row(r,s2,"shelf",[.2,.5,.8],.5,42);
   r.cabinetR({x:5.0,w:1.4,d:1.25,h:4.2,c:"#eeeeee",inner:"#dff0f8",shelves:[1.5,2.8],doors:[{hinge:"L"}],kind:"fridgein",cap:40,n:2,label:"il frigorifero",fridge:true});
-  r.window("L",4.4,6.4,1.9,3.8);
-  const tb=r.table(3.0,4.2,2.2,1.6,1.7,"#98754f"); [.22,.5,.78].forEach(u=>r.slot(tb,"table",u,.5,40));
+  r.window("L",4.4,6.4,1.9,3.8); r.sill("L",4.4,6.4,1.9,[.3,.7],32);
+  const tb=r.table(3.0,4.2,2.2,1.6,1.7,"#98754f"); row(r,tb,"table",[.15,.38,.62,.85],.5,38);
   r.chair(3.2,6.1,"#f2c25e"); r.chair(4.5,6.1,"#f2c25e");
+  r.wallSlot("L",2.6,3.2,50);
  }},
 {h:3,name:"La camera",N:8,wall:["#dfe9f2","#d0dcea"],wp:"stripe",floor:"#cfbfae",fp:"carpet",
- cartons:[[5.0,2.7],[5.2,6.3]],
- items:[["⏰","Sveglia",["nightstand"],34],["📕","Libro",["nightstand","bed","bedin","armchair"],32],["👓","Occhiali",["nightstand","drawer"],28],["🧳","Valigia",["wardrobe","floor"],46],
-  ["🧸","Il vecchio orsetto",["armchair","bed","bedin"],42],["👕","Maglietta",["wardin"],40],["👗","Vestito",["wardin"],44],["🧣","Sciarpa",["wardin","armchair"],38],
-  ["🗺️","La solita mappa",["wall"],58],["🖼️","Foto del matrimonio",["wall"],46],["🪴","Pianta",["floor"],56],["👟","Scarpe",["floor","wardin"],34]],
+ cartons:[[5.0,2.7],[5.2,6.3],[3.4,6.8]],
+ items:[I("alarm","Sveglia",["nightstand"]),I("books","Libri",["nightstand","bed","bedin","armchair"]),I("headphones","Cuffie",["nightstand","drawer","bed"]),
+  I("suitcase","Valigia",["wardrobe","floor"]),I("teddy","Il vecchio orsetto",["armchair","bed","bedin"]),I("shirt","Magliette",["wardin"]),I("dress","Vestito",["wardin"]),
+  I("scarf","Sciarpa",["wardin","armchair"]),I("sweater","Maglioni",["wardin"]),I("map","La solita mappa",["wall"]),I("weddingphoto","Foto del matrimonio",["wall"]),
+  I("mirror","Specchio",["wall"]),I("bigplant","Pianta",["floor"]),I("shoes","Scarpe",["floor","wardin"]),I("lamp","Abat-jour",["nightstand"]),
+  I("perfume","Profumo",["nightstand","sill"]),I("hat","Cappello",["wardrobe","wardin","armchair"]),I("jewelry","Portagioie",["nightstand","drawer"]),
+  I("candle","Candela",["nightstand","sill"]),I("laundry","Cesto dei panni",["floor"]),I("phone","Telefono",["nightstand","bed"])],
  build(r){
-  const b=r.bed(0,2.8,4.4,3.2,"#f0a487"); [.25,.75].forEach(v=>r.slot(b.pillow,"bed",.5,v,46)); r.bedCovers(b,2,44);
-  const n1=r.box(0,1.8,0,.9,.9,1.2,"#9c6a45"); r.slot(n1,"nightstand",.5,.5,36); r.drawer(n1,"x",.6,1.05,{n:1,cap:30});
-  const n2=r.box(0,6.1,0,.9,1.4,1.2,"#9c6a45"); [.27,.76].forEach(v=>r.slot(n2,"nightstand",.5,v,34));
-  const wd=r.cabinetR({x:3.2,w:2.4,d:1.2,h:3.6,c:"#d6a676",inner:"#94694a",shelves:[1.45,2.55],doors:[{hinge:"L",len:1.2},{hinge:"R",len:1.2}],kind:"wardin",cap:46,n:2,label:"l'armadio"});
-  [.3,.72].forEach(u=>r.slot(wd.top,"wardrobe",u,.5,48));
+  const b=r.bed(0,2.8,4.4,3.2,"#f0a487"); col(r,b.pillow,"bed",.5,[.25,.75],46); r.bedCovers(b,2,44);
+  const n1=r.box(0,1.8,0,.9,.9,1.2,"#9c6a45"); r.slot(n1,"nightstand",.5,.5,36); r.drawer(n1,"x",.6,1.05,{n:1,cap:32});
+  const n2=r.box(0,6.1,0,.9,1.4,1.2,"#9c6a45"); col(r,n2,"nightstand",.5,[.27,.76],34); r.drawer(n2,"x",.6,1.05,{n:2,cap:32});
+  const wd=r.cabinetR({x:3.2,w:2.4,d:1.2,h:3.6,c:"#d6a676",inner:"#94694a",shelves:[1.45,2.55],doors:[{hinge:"L",len:1.2},{hinge:"R",len:1.2}],kind:"wardin",cap:46,n:2,label:"l'armadio"}); r.tag("wardrobe",wd.op);
+  row(r,wd.top,"wardrobe",[.3,.72],.5,52);
   const ar=r.armchair(6.2,4.4,"#8fb88b"); r.slot(ar,"armchair",.5,.5,44);
-  r.window("R",5.9,7.6,2,3.8);
-  r.wallSlot("L",3.6,3.3,60); r.wallSlot("L",5.3,3.3,60); r.wallSlot("R",1.6,3.0,50);
-  r.floorSlot(7.3,2.0,58); r.floorSlot(2.6,6.9,40); r.floorSlot(5.0,4.6,50);
+  r.window("R",5.9,7.6,2,3.8); r.sill("R",5.9,7.6,2,[.3,.7],30);
+  r.wallSlot("L",3.6,3.3,60); r.wallSlot("L",5.3,3.3,60); r.wallSlot("R",1.6,3.0,52);
+  r.floorSlot(7.3,2.0,58); r.floorSlot(2.6,6.9,46); r.floorSlot(5.0,4.6,52); r.floorSlot(7.2,7.2,46);
  }},
 {h:3,name:"Lo studio",N:8,wall:["#ece7dd","#e0d9cc"],wp:"plain",floor:"#b38a64",fp:"wood",
- cartons:[[4.6,4.0],[2.0,6.2]],
- items:[["🖥️","Monitor",["monitor"],52],["⌨️","Tastiera",["desk"],34],["🖱️","Mouse",["desk"],24],["🎧","Cuffie",["desk","bookcase"],34],["🗂️","Raccoglitori",["bookcase","desk"],36],
-  ["📚","Libri",["bookcase","desk"],40],["📚","Libri",["bookcase","desk"],40],["🏆","Coppa",["bookcase","desk"],38],["📜","Diploma",["wall"],44],["🎸","Chitarra",["floor"],62]],
+ cartons:[[4.6,4.0],[2.0,6.2],[5.6,6.0]],
+ items:[I("monitor","Monitor",["monitor"]),I("keyboard","Tastiera",["desk"]),I("mouse","Mouse",["desk"]),I("headphones","Cuffie",["desk","bookcase","cabinet"]),
+  I("binders","Raccoglitori",["bookcase","desk","cabinet"]),I("books","Libri",["bookcase","desk"]),I("books","Libri",["bookcase","desk"]),I("bookrow","Fila di libri",["bookcase"]),
+  I("trophy","Coppa",["bookcase","desk","cabinet"]),I("diploma","Diploma",["wall"]),I("calendar","Calendario",["wall"]),I("clock","Orologio",["wall"]),
+  I("guitar","Chitarra",["floor"]),I("desklamp","Lampada",["desk","cabinet"]),I("pencup","Portapenne",["desk","cabinet","drawer"]),I("printer","Stampante",["cabinet","floor"]),
+  I("plant","Piantina",["floor","sill","cabinet"]),I("mug","Tazza",["desk","cabinet","sill"]),I("globe","Mappamondo",["bookcase","cabinet","desk","sill"])],
  build(r){
-  const dk=r.table(1.0,.15,3.4,1.8,1.9,"#efe9de"); r.slot(dk,"monitor",.45,.28,54); r.slot(dk,"desk",.45,.8,36); r.slot(dk,"desk",.75,.8,26); r.slot(dk,"desk",.1,.4,36); r.slot(dk,"desk",.85,.3,40);
+  const dk=r.table(1.0,.15,3.4,1.8,1.9,"#efe9de"); r.slot(dk,"monitor",.45,.28,56); r.slot(dk,"desk",.45,.8,38); r.slot(dk,"desk",.75,.8,26); r.slot(dk,"desk",.1,.4,38); r.slot(dk,"desk",.85,.3,40);
   r.chair(2.3,2.5,"#4f4f55");
+  const cab=r.box(4.6,.15,0,1.0,1.0,1.2,"#efe9de"); r.slot(cab,"cabinet",.5,.5,46); r.drawer(cab,"y",.55,1.0,{n:2,cap:28});
   const pl=r.bookcaseL(2.8,2.6,[.3,1.7,3.1],"#7d5a40"); pl.forEach(p=>[.28,.72].forEach(v=>r.slot(p,"bookcase",.5,v,42)));
-  r.window("R",6.2,7.6,2,3.8);
-  r.wallSlot("R",5.3,3.0,48); r.wallSlot("R",2.6,3.8,48); r.wallSlot("L",1.2,3.2,48);
-  r.floorSlot(6.9,1.3,64); r.floorSlot(6.8,6.6,64);
+  r.window("R",6.2,7.6,2,3.8); r.sill("R",6.2,7.6,2,[.3,.7],34);
+  r.wallSlot("R",5.3,3.0,50); r.wallSlot("R",2.6,3.8,50); r.wallSlot("L",1.2,3.2,50);
+  r.floorSlot(6.9,1.3,64); r.floorSlot(6.8,6.6,64); r.floorSlot(4.2,6.8,48);
  }},
 {h:4,name:"La cameretta",N:8,wall:["#fdf1cb","#f7e4ae"],wp:"stripe",floor:"#d8ae7c",fp:"wood",
- cartons:[[5.4,3.0],[5.0,5.7]],
- items:[["🧸","Il vecchio orsetto",["crib","shelf"],42],["🍼","Biberon",["changing"],34],["🧴","Crema",["changing","shelf","drawer"],30],["🧦","Calzini",["drawer"],30],
-  ["🚂","Trenino",["shelf","floor"],36],["🦕","Dinosauro",["shelf","floor","crib"],38],["📚","Favole",["shelf","changing"],38],["⭐","Stellina",["wall"],40],
-  ["🧩","Puzzle",["floor"],34],["⚽","Pallone",["floor"],36]],
+ cartons:[[5.4,3.0],[5.0,5.7],[1.6,7.0]],
+ items:[I("teddy","Il vecchio orsetto",["crib","shelf"]),I("bottle","Biberon",["changing"]),I("cream","Crema",["changing","shelf","drawer"]),I("socks","Calzini",["drawer"]),
+  I("train","Trenino",["shelf","floor"]),I("dino","Dinosauro",["shelf","floor","crib"]),I("books","Favole",["shelf","changing"]),I("star","Stellina",["wall"]),
+  I("puzzle","Puzzle",["floor"]),I("ball","Pallone",["floor"]),I("rattle","Sonaglino",["crib","changing","shelf"]),I("blocks","Cubi",["floor","shelf"]),
+  I("nightlight","Lucina",["shelf","changing","sill"]),I("diapers","Pannolini",["changing","drawer","floor"]),I("bunny","Coniglietto",["crib","shelf"]),
+  I("musicbox","Carillon",["shelf","sill","changing"]),I("duck","Paperella",["shelf","sill"]),I("car","Macchinina",["floor","shelf"]),I("moon","Luna",["wall"])],
  build(r){
   r.rug(2.4,2.2,3,3,"#f8bdb6",true);
-  const m=r.crib(0,4.4,3.0,1.8); [.3,.7].forEach(u=>r.slot(m,"crib",u,.5,44));
-  const ch=r.box(4.4,.1,0,2.2,1.2,1.8,"#ffffff"); r.deco(ch,{t:"rect",u0:.05,v0:.1,u1:.95,v1:.9,c:"#bfe2f2"}); [.2,.5,.8].forEach(u=>r.slot(ch,"changing",u,.5,36));
-  r.drawer(ch,"y",.9,1.45,{n:2,cap:32});
-  const sh=r.shelfL(.8,2.8,2.8,"#f6aba4"); [.14,.38,.62,.86].forEach(v=>r.slot(sh,"shelf",.5,v,40));
-  r.window("R",1.6,3.6,2,3.8);
-  r.wallSlot("L",4.8,3.4,44); r.wallSlot("L",6.0,3.4,44); r.wallSlot("R",5.5,3.4,44);
-  r.floorSlot(3.9,3.7,40); r.floorSlot(7.0,2.6,40); r.floorSlot(3.4,6.9,40); r.floorSlot(6.9,6.9,40);
+  const m=r.crib(0,4.4,3.0,1.8); row(r,m,"crib",[.25,.5,.75],.5,42);
+  const ch=r.box(4.4,.1,0,2.2,1.2,1.8,"#ffffff"); r.deco(ch,{t:"rect",u0:.05,v0:.1,u1:.95,v1:.9,c:"#bfe2f2"}); row(r,ch,"changing",[.2,.5,.8],.5,38);
+  r.drawer(ch,"y",.9,1.45,{n:2,cap:38});
+  const sh=r.shelfL(.8,2.8,2.8,"#f6aba4"); col(r,sh,"shelf",.5,[.14,.38,.62,.86],40);
+  const sh2=r.shelfL(.8,3.9,2.8,"#f6aba4"); col(r,sh2,"shelf",.5,[.2,.5,.8],36);
+  r.window("R",1.6,3.6,2,3.8); r.sill("R",1.6,3.6,2,[.3,.7],32);
+  r.wallSlot("L",4.8,3.4,46); r.wallSlot("L",6.0,3.4,46); r.wallSlot("R",5.5,3.4,46);
+  r.floorSlot(3.9,3.7,46); r.floorSlot(7.0,2.6,46); r.floorSlot(3.4,6.9,46); r.floorSlot(6.9,6.9,46); r.floorSlot(2.6,1.6,46);
  }}
 ];
 
@@ -289,7 +363,8 @@ const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
 
 // ---------- costruttore stanza ----------
 function builder(){
-  const r={boxes:[],slots:[],wall:[],floor:[],opens:[]};
+  const r={boxes:[],slots:[],wall:[],floor:[],opens:[],tags:{}};
+  r.tag=(k,v)=>r.tags[k]=v;
   r.box=(x,y,z,w,d,h,c)=>{const b={kind:"box",x,y,z,w,d,h,c,decos:[]};r.boxes.push(b);return b};
   r.deco=(b,o)=>{b.decos.push(o);return b};
   const mk=o=>{const sl=Object.assign({item:null,plane:"top"},o);r.slots.push(sl);return sl};
@@ -298,6 +373,7 @@ function builder(){
   r.wallSlot=(side,a,z,cap)=>mk({kind:"wall",cap,plane:side,x:side==="L"?0:a,y:side==="L"?a:0,z});
   r.window=(side,a0,a1,z0,z1)=>{r.wall.push({t:"window",side,a0,a1,z0,z1});
     if(side==="L")r.box(0,a0-.1,z0-.12,.35,a1-a0+.2,.12,"#fffaf2");else r.box(a0-.1,0,z0-.12,a1-a0+.2,.35,.12,"#fffaf2")};
+  r.sill=(side,a0,a1,z0,us,cap)=>{const len=a1-a0+.2;us.forEach(u=>{const a=a0-.1+u*len;mk({kind:"sill",cap,x:side==="L"?.2:a,y:side==="L"?a:.2,z:z0})})};
   r.frame=(side,a0,a1,z0,z1,c)=>r.wall.push({t:"frame",side,a0,a1,z0,z1,c});
   r.rug=(x,y,w,d,c,round)=>r.floor.push({x,y,w,d,c,round});
   r.table=(x,y,w,d,h,c)=>{const l=.14,lc=mixHex(c,-.2);
@@ -386,23 +462,24 @@ function fits(it,s){return it.s<=s.cap+1}
 function allowed(it,s){return fits(it,s)&&it.ok.includes(s.kind)}
 
 // ---------- caricamento ----------
+const MCACHE={};function modelOf(k){return MCACHE[k]||(MCACHE[k]=makeModel(k))}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function loadRoom(i,intro=true){
-  ri=i;room=ROOMS[i];N=room.N;finished=false;drag=null;hover=null;hint=null;FX.length=0;
+  ri=i;applyLook(i);N=room.N;finished=false;drag=null;hover=null;hint=null;FX.length=0;
   oy=300;computeBase();cam={x:home.x,y:home.y,z:1};
   RULE={time:SET.time,errs:SET.errs};errors=0;timeLeft=RULE.time*60;timerOn=false;placeStep=0;
   store("scatoloni3-cur",String(i));
   const mx=parseInt(store("scatoloni3-max")||"0",10)||0;if(i>mx)store("scatoloni3-max",String(i));
-  R=builder();room.build(R);R.opens.forEach(updOpen);
-  items=shuffle(room.items.map(d=>({e:d[0],n:d[1],ok:d[2],s:d[3],state:"queue",slot:null,x:0,y:0,z:0,plane:"top",bad:false})));
+  R=builder();room.build(R);R.opens.forEach(updOpen);initPuzzles(i);
+  items=shuffle(room.items.map(d=>({key:d[0],M:modelOf(d[0]),n:d[1],ok:d[2],s:d[3],state:"queue",slot:null,x:0,y:0,z:0,plane:"top",bad:false})));
   cartons=room.cartons.map(([x,y])=>({kind:"carton",x,y,z:0,w:1.1,d:1.1,h:.9,c:"#d39a5e",queue:[],decos:[]}));
   items.forEach((it,k)=>cartons[k%cartons.length].queue.push(it));
   const H=HOUSES[room.h];
   updateCount();dirty=true;
   if(intro){
     const first=i===0||ROOMS[i-1].h!==room.h;
-    if(first)overlay(`<div class="year">${H.year}</div><h2>${H.name}</h2><p>${H.story}</p><p class="how">Apri gli scatoloni e sistema ogni oggetto dove ti piace, purché abbia senso. Frigo, armadi, cassetti e coperte si aprono con un tocco.</p>`,[["Inizia","primary",()=>{}]]);
-    else showToast(`${H.name} · ${room.name}`);
+    if(first)overlay(`<div class="year">${H.year}</div><h2>${H.name}</h2><p>${H.story}</p><p class="how">Prima arreda la stanza come ti piace. Poi apri gli scatoloni e sistema ogni oggetto dove ha senso. Tocca gli oggetti per esaminarli: nascondono indizi per gli enigmi 🧩.</p>`,[["Inizia","primary",()=>lookMenu()]]);
+    else{showToast(`${H.name} · ${room.name}`);lookMenu()}
   }else showToast(room.name);
 }
 
@@ -447,6 +524,7 @@ function updateCount(){
   const placed=items.filter(i=>i.state==="slot").length;
   const inBox=cartons.reduce((a,c)=>a+c.queue.length,0);
   document.getElementById("count").textContent=(inBox?`📦 ${inBox} · `:"")+`✅ ${placed}/${items.length}`;
+  const pe=document.getElementById("puz"),pl=(R&&R.puzzles)||[];pe.style.display=pl.length?"inline-block":"none";pe.textContent=`🧩 ${pl.filter(p=>p.solved).length}/${pl.length}`;
 }
 function check(){
   updateCount();
@@ -454,6 +532,8 @@ function check(){
   if(items.some(i=>i.state!=="slot"))return;
   const wrong=items.filter(i=>!allowed(i,i.slot));
   items.forEach(i=>i.bad=wrong.includes(i));
+  const left=(R.puzzles||[]).filter(p=>!p.solved);
+  if(!wrong.length&&left.length){if(!R.puzzleNag){R.puzzleNag=1;showToast("Tutto in ordine! Manca ancora un enigma 🧩")}dirty=true;return}
   if(!wrong.length){finished=true;const c=P(N/2,N/2,1);for(let k=0;k<4;k++)setTimeout(()=>sparkle(c[0]+(Math.random()-.5)*300,c[1]-Math.random()*200,8),k*150);setTimeout(win,900)}
   else{showToast(wrong.length===1?"Un oggetto è in un posto strano":`${wrong.length} oggetti sono in posti strani`);SFX.wrong()}
   dirty=true;
@@ -499,11 +579,16 @@ function drawShell(){
   poly([P(-T,N,WH),P(0,N,WH),P(0,0,WH),P(N,0,WH),P(N,-T,WH),P(-T,-T,WH)],"#fffaf2");
   // pareti
   poly(wquad("L",0,N,0,WH),wl);poly(wquad("R",0,N,0,WH),wr);
+  if(room.wp==="dots"){for(const s of["L","R"])for(let a=.5;a<N;a+=.75)for(let z=.7;z<WH-.2;z+=.75){const q=wq(s,a+((z*4|0)%2)*.37,z);ctx.beginPath();ctx.ellipse(q[0],q[1],3.2,3.6,0,0,7);ctx.fillStyle="rgba(255,255,255,.55)";ctx.fill()}}
+  if(room.wp==="grid"){for(const s of["L","R"]){for(let z=.5;z<WH;z+=.5)line(wq(s,0,z),wq(s,N,z),"rgba(255,255,255,.4)",1.2);for(let a=.5;a<N;a+=.5)line(wq(s,a,0),wq(s,a,WH),"rgba(255,255,255,.4)",1.2)}}
   if(room.wp==="stripe"){for(let a=0;a<N;a+=1){poly(wquad("L",a,a+.5,0,WH),"rgba(255,255,255,.16)");poly(wquad("R",a,a+.5,0,WH),"rgba(255,255,255,.16)")}}
   if(room.wp==="tile"){const top=2.6;
     for(const s of["L","R"]){for(let z=.5;z<=top;z+=.5)line(wq(s,0,z),wq(s,N,z),"rgba(255,255,255,.6)");for(let a=.5;a<N;a+=.5)line(wq(s,a,0),wq(s,a,top),"rgba(255,255,255,.6)");
       poly(wquad(s,0,N,top,top+.12),shade(s==="L"?wl:wr,-.12))}}
   else{poly(wquad("L",0,N,0,.22),shade(wl,-.15));poly(wquad("R",0,N,0,.22),shade(wr,-.15))}
+  // occlusione morbida alla base delle pareti e luce dall'alto
+  for(const s of["L","R"]){const a=wq(s,N/2,0),b=wq(s,N/2,1.1);const g=ctx.createLinearGradient(a[0],a[1],b[0],b[1]);g.addColorStop(0,"rgba(70,40,70,.18)");g.addColorStop(1,"rgba(70,40,70,0)");poly(wquad(s,0,N,0,1.1),g);
+    const c=wq(s,N/2,WH),d=wq(s,N/2,WH-1.6);const g2=ctx.createLinearGradient(c[0],c[1],d[0],d[1]);g2.addColorStop(0,"rgba(255,255,255,.22)");g2.addColorStop(1,"rgba(255,255,255,0)");poly(wquad(s,0,N,WH-1.6,WH),g2)}
   // retino in basso sulle pareti (ombra morbida)
   ctx.save();ctx.globalAlpha=.35;poly(wquad("R",0,N,0,1.2),TONE);ctx.restore();
   // pavimento
@@ -532,11 +617,13 @@ function drawWallDecals(){
       line(wq(s,(a0+a1)/2,z0+.12),wq(s,(a0+a1)/2,z1-.12),"#fffaf2",4);line(wq(s,a0+.12,(z0+z1)/2),wq(s,a1-.12,(z0+z1)/2),"#fffaf2",3);
       poly(wquad(s,a0+.25,a0+.45,z0+.35,z1-.3),"rgba(255,255,255,.65)");poly(wquad(s,a0+.55,a0+.62,z0+.35,z1-.3),"rgba(255,255,255,.65)");
       // tende
-      const cur="#f7b6b0";poly(wquad(s,a0-.25,a0+.15,z0-.3,z1+.25),cur,INK,1.2);poly(wquad(s,a1-.15,a1+.25,z0-.3,z1+.25),cur,INK,1.2);
+      const cur=room.cur;if(cur){poly(wquad(s,a0-.25,a0+.15,z0-.3,z1+.25),cur,INK,1.2);poly(wquad(s,a1-.15,a1+.25,z0-.3,z1+.25),cur,INK,1.2);
+        for(const k of[-.12,.02])line(wq(s,a0+k,z0-.25),wq(s,a0+k,z1+.2),"rgba(59,42,38,.2)",1);for(const k of[-.02,.12])line(wq(s,a1+k,z0-.25),wq(s,a1+k,z1+.2),"rgba(59,42,38,.2)",1)}
       line(wq(s,a0-.35,z1+.3),wq(s,a1+.35,z1+.3),"#8a6a4a",3)}
     if(w.t==="frame"){const{side:s,a0,a1,z0,z1,c}=w;rpath(wquad(s,a0,a1,z0,z1),5);ctx.fillStyle="#c9a273";ctx.fill();ctx.strokeStyle=INK;ctx.lineWidth=2;ctx.stroke();
       poly(wquad(s,a0+.1,a1-.1,z0+.1,z1-.1),c,"rgba(59,42,38,.5)",1);poly(wquad(s,a0+.25,a0+.45,z0+.3,z1-.3),"rgba(255,255,255,.6)")}
   }
+  drawProps();
   for(const s of R.slots)if(s.plane!=="top")drawMark(s);
 }
 function drawFloorDecals(){
@@ -561,27 +648,29 @@ function drawMark(s){
   else{const hs=s.cap/80+.12,q=s.plane==="L"?s.y:s.x;poly(wquad(s.plane,q-hs,q+hs,s.z-hs*1.1,s.z+hs*1.1),`rgba(255,215,90,${a})`,"#fff",2)}
   ctx.restore();
 }
-function drawSolid(b,topCol,skipTopDecos){
-  const{x,y,z,w,d,h,c}=b;if(h<.005)return;
-  const sil=[P(x,y,z+h),P(x+w,y,z+h),P(x+w,y,z),P(x+w,y+d,z),P(x,y+d,z),P(x,y+d,z+h)];
-  const rad=Math.max(1,Math.min(6,w*U*.3,d*U*.3,h*ZU*.4));
+function isoEllQ(Q,cx,cy,cz,r,k){const c=Q(cx,cy,cz);ctx.beginPath();ctx.ellipse(c[0],c[1],r*U*1.414*k,r*U*.707*k,0,0,Math.PI*2)}
+function drawSolid(b,topCol,Q=P,k=1){
+  const{x,y,z,w,d,h,c}=b;if(h<.004)return;
+  const sil=[Q(x,y,z+h),Q(x+w,y,z+h),Q(x+w,y,z),Q(x+w,y+d,z),Q(x,y+d,z),Q(x,y+d,z+h)];
+  const rad=Math.max(.8,Math.min(6,w*U*.3,d*U*.3,h*ZU*.4)*k);
   ctx.save();rpath(sil,rad);ctx.clip();
-  const fy=[P(x,y+d,z),P(x+w,y+d,z),P(x+w,y+d,z+h),P(x,y+d,z+h)],fx=[P(x+w,y,z),P(x+w,y+d,z),P(x+w,y+d,z+h),P(x+w,y,z+h)],tp=[P(x,y,z+h),P(x+w,y,z+h),P(x+w,y+d,z+h),P(x,y+d,z+h)];
-  poly(fy,shade(c,-.05));poly(fx,shade(c,-.2));if(h*ZU>12&&d*U>10)poly(fx,TONE);poly(tp,topCol||shade(c,.12));
+  const fy=[Q(x,y+d,z),Q(x+w,y+d,z),Q(x+w,y+d,z+h),Q(x,y+d,z+h)],fx=[Q(x+w,y,z),Q(x+w,y+d,z),Q(x+w,y+d,z+h),Q(x+w,y,z+h)],tp=[Q(x,y,z+h),Q(x+w,y,z+h),Q(x+w,y+d,z+h),Q(x,y+d,z+h)];
+  poly(fy,shade(c,-.05));poly(fx,shade(c,-.2));if(h*ZU*k>12&&d*U*k>10)poly(fx,TONE);poly(tp,topCol||shade(c,.12));
   for(const o of b.decos){
-    if(o.t==="ell"){isoEll(x+o.u*w,y+o.v*d,z+h,o.r);ctx.fillStyle=o.c;ctx.fill();ctx.strokeStyle="rgba(59,42,38,.4)";ctx.lineWidth=1;ctx.stroke()}
-    else if(o.t==="rect")poly([P(x+o.u0*w,y+o.v0*d,z+h),P(x+o.u1*w,y+o.v0*d,z+h),P(x+o.u1*w,y+o.v1*d,z+h),P(x+o.u0*w,y+o.v1*d,z+h)],o.c,"rgba(59,42,38,.35)",1);
-    else if(o.t==="fy")poly([P(x+o.u0*w,y+d,z+o.w0*h),P(x+o.u1*w,y+d,z+o.w0*h),P(x+o.u1*w,y+d,z+o.w1*h),P(x+o.u0*w,y+d,z+o.w1*h)],o.c);
-    else if(o.t==="fx")poly([P(x+w,y+o.v0*d,z+o.w0*h),P(x+w,y+o.v1*d,z+o.w0*h),P(x+w,y+o.v1*d,z+o.w1*h),P(x+w,y+o.v0*d,z+o.w1*h)],o.c);
+    if(o.t==="ell"){isoEllQ(Q,x+o.u*w,y+o.v*d,z+h,o.r,k);ctx.fillStyle=o.c;ctx.fill();ctx.strokeStyle="rgba(59,42,38,.4)";ctx.lineWidth=1;ctx.stroke()}
+    else if(o.t==="rect")poly([Q(x+o.u0*w,y+o.v0*d,z+h),Q(x+o.u1*w,y+o.v0*d,z+h),Q(x+o.u1*w,y+o.v1*d,z+h),Q(x+o.u0*w,y+o.v1*d,z+h)],o.c,"rgba(59,42,38,.3)",.8);
+    else if(o.t==="fy")poly([Q(x+o.u0*w,y+d,z+o.w0*h),Q(x+o.u1*w,y+d,z+o.w0*h),Q(x+o.u1*w,y+d,z+o.w1*h),Q(x+o.u0*w,y+d,z+o.w1*h)],o.c);
+    else if(o.t==="fx")poly([Q(x+w,y+o.v0*d,z+o.w0*h),Q(x+w,y+o.v1*d,z+o.w0*h),Q(x+w,y+o.v1*d,z+o.w1*h),Q(x+w,y+o.v0*d,z+o.w1*h)],shadeStr(o.c,-.12));
   }
-  const a=P(x,y+d,z+h),m=P(x+w,y+d,z+h),e=P(x+w,y,z+h);
-  ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(m[0],m[1]);ctx.lineTo(e[0],e[1]);ctx.strokeStyle="rgba(255,255,255,.6)";ctx.lineWidth=3;ctx.stroke();
+  const a=Q(x,y+d,z+h),m=Q(x+w,y+d,z+h),e=Q(x+w,y,z+h);
+  ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(m[0],m[1]);ctx.lineTo(e[0],e[1]);ctx.strokeStyle="rgba(255,255,255,.6)";ctx.lineWidth=Math.max(1,3*k);ctx.stroke();
   ctx.restore();
   ctx.lineJoin="round";ctx.lineCap="round";
-  const il="rgba(59,42,38,.55)";line(m,P(x+w,y+d,z),il,1.1);line(m,a,il,1.1);line(m,e,il,1.1);
-  rpath(sil,rad);ctx.strokeStyle=INK;ctx.lineWidth=Math.min(2.2,.7+Math.min(w*U,d*U,h*ZU)/10);ctx.stroke();
-  for(const o of b.decos)if(o.t==="mark")drawMark(o.slot);
+  const il="rgba(59,42,38,.5)";line(m,Q(x+w,y+d,z),il,1.1*k);line(m,a,il,1.1*k);line(m,e,il,1.1*k);
+  rpath(sil,rad);ctx.strokeStyle=INK;ctx.lineWidth=Math.max(.9,Math.min(2.2,.7+Math.min(w*U,d*U,h*ZU)/10)*Math.sqrt(k));ctx.stroke();
+  if(Q===P)for(const o of b.decos)if(o.t==="mark")drawMark(o.slot);
 }
+function shadeStr(c,f){return c[0]==="#"?shade(c,f):c}
 function drawBox(b){drawSolid(b);b.bb=bboxOf(b)}
 function drawCarton(b){
   let{x,y,z,w,d,h,c}=b;
@@ -615,39 +704,22 @@ function drawDoor(o){
   if(outVis&&o.th<.5){ctx.save();ctx.globalAlpha=.12;rpath(q,4);ctx.fillStyle=TONE;ctx.fill();ctx.restore()}
   if(outVis){const f=(t,z)=>{const xx=o.hx+(o.fx-o.hx)*t,yy=op.fd+(o.fy-op.fd)*t;return P(xx,yy,z)};
     const hc=op.fridge?"#a9b3ba":"#6b4a33";poly([f(.82,h*.42),f(.88,h*.42),f(.88,h*.62),f(.82,h*.62)],hc,INK,1)}
+  if(op.lock&&!op.lock.solved&&outVis){const f=(t,z)=>P(o.hx+(o.fx-o.hx)*t,op.fd+(o.fy-op.fd)*t,z);const c=f(o.dr.hinge==="L"?.85:.85,h*.5);
+    ctx.beginPath();ctx.arc(c[0],c[1]-6,5,Math.PI,0);ctx.lineWidth=2.5;ctx.strokeStyle="#8d99ae";ctx.stroke();ctx.beginPath();ctx.roundRect?ctx.roundRect(c[0]-7,c[1]-6,14,12,3):ctx.rect(c[0]-7,c[1]-6,14,12);ctx.fillStyle="#ffd166";ctx.fill();ctx.lineWidth=1.6;ctx.strokeStyle=INK;ctx.stroke()}
   if(op.fridge&&outVis&&o.th<.4){line(P(o.hx,op.fd,h*.62),P(o.fx,o.fy,h*.62),"rgba(59,42,38,.35)",1.2)}
   ctx.lineJoin="round";rpath(q,4);ctx.strokeStyle=INK;ctx.lineWidth=2;ctx.stroke();
   o.quad=q;(op.quads=op.quads||[]).push(q);
 }
-// ---------- oggetti come adesivi (contorno bianco + inchiostro) ----------
-const EF='"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
-const SPR=new Map();
-function sprite(e,s){
-  const k=e+"|"+s;let c=SPR.get(k);if(c)return c;
-  const RS=3,S=Math.ceil(s*1.55*RS);
-  const base=document.createElement("canvas");base.width=base.height=S;const b=base.getContext("2d");
-  b.font=`${s*RS}px ${EF}`;b.textAlign="center";b.textBaseline="middle";b.fillText(e,S/2,S/2+s*RS*.04);
-  const sil=col=>{const t=document.createElement("canvas");t.width=t.height=S;const g=t.getContext("2d");g.drawImage(base,0,0);g.globalCompositeOperation="source-in";g.fillStyle=col;g.fillRect(0,0,S,S);return t};
-  const ink=sil(INK),wh=sil("#ffffff");
-  c=document.createElement("canvas");c.width=c.height=S;const g=c.getContext("2d");
-  const ring=(img,rad)=>{for(let a=0;a<16;a++){const an=a/16*Math.PI*2;g.drawImage(img,Math.cos(an)*rad,Math.sin(an)*rad)}};
-  ring(ink,4.2*RS);ring(wh,3*RS);g.drawImage(base,0,0);
-  c.cw=S/RS;SPR.set(k,c);return c;
-}
+// ---------- oggetti 3D ----------
+const ITEM_K=1.75;
+function itemPrims(it,plane){if(!it.M.wall)return[it.M.m,it.M.e,0];if(plane==="L")return[it.M.mL,it.M.eL,0];return[it.M.mR,it.M.eR,plane==="top"?-it.M.eR.z0:0]}
 function drawItemAt(it,sx,sy,plane,sc,glow,alpha){
-  const s=it.s*sc,spr=sprite(it.e,it.s),cw=spr.cw*sc;ctx.save();
-  if(alpha!=null)ctx.globalAlpha=alpha;
-  if(plane==="top"){
-    if(!glow&&alpha==null){ctx.fillStyle="rgba(60,30,60,.22)";ctx.beginPath();ctx.ellipse(sx,sy-1,s*.34,s*.11,0,0,Math.PI*2);ctx.fill()}
-    if(glow){ctx.shadowColor=glow;ctx.shadowBlur=18}
-    ctx.drawImage(spr,sx-cw/2,sy-s*.52-cw/2,cw,cw);
-    it.rect=[sx-s*.58,sy-s*1.08,s*1.16,s*1.12];
-  }else{
-    ctx.translate(sx,sy);ctx.transform(1,plane==="L"?-.5:.5,0,1,0,0);if(glow){ctx.shadowColor=glow;ctx.shadowBlur=18}
-    ctx.drawImage(spr,-cw/2,-cw/2,cw,cw);
-    it.rect=[sx-s*.58,sy-s*.82,s*1.16,s*1.64];
-  }
-  ctx.restore();
+  const[pr,ex,lift]=itemPrims(it,plane);const k=sc*ITEM_K;sy-=lift*ZU*k;
+  if(plane==="top"&&alpha==null&&!glow){const fw=(ex.x1-ex.x0+ex.y1-ex.y0)*U*.55*k;ctx.save();ctx.fillStyle="rgba(60,30,60,.22)";ctx.beginPath();ctx.ellipse(sx,sy+lift*ZU*k-1,Math.max(6,fw*.75),Math.max(3,fw*.28),0,0,Math.PI*2);ctx.fill();ctx.restore()}
+  drawModel(pr,sx,sy,k,glow,alpha);
+  let a=1e9,b=1e9,c=-1e9,d=-1e9;
+  for(const X of[ex.x0,ex.x1])for(const Y of[ex.y0,ex.y1])for(const Zz of[ex.z0,ex.z1]){const q=[sx+(X-Y)*U*k,sy+(X+Y)*U/2*k-Zz*ZU*k];a=Math.min(a,q[0]);b=Math.min(b,q[1]);c=Math.max(c,q[0]);d=Math.max(d,q[1])}
+  const pad=4;it.rect=[a-pad,b-pad,c-a+2*pad,d-b+2*pad];it.sb=[sx,sy+lift*ZU*k];
 }
 function itemGlow(it){
   if(hint&&hint.it===it)return`rgba(255,200,60,${.7+.3*Math.sin(now/120)})`;
@@ -658,8 +730,395 @@ function itemGlow(it){
 function drawItem(d){
   const it=d.it,p=d.p;let sc=1;
   if(it.popT){const q=(now-it.popT)/280;if(q>=0&&q<1)sc=1+.22*Math.sin(Math.PI*q);else if(q>=1)it.popT=0}
-  const sp=P(p.x+(it.plane==="L"?.03:0),p.y+(it.plane==="R"?.03:0),p.z);
+  const sp=P(p.x+(it.plane==="L"?.01:0),p.y+(it.plane==="R"?.01:0),p.z);
   drawItemAt(it,sp[0],sp[1],it.plane,sc,itemGlow(it));
+  if(it.key==="clock"){const pz=(R.puzzles||[]).find(q=>q.type==="clock");const hm=pz?(pz.solved?pz.answer:[pzState(pz).h,pzState(pz).m]):[10,10];
+    const lift=it.plane==="top"?-it.M.eR.z0:0;drawClockHands(sp[0],sp[1],it.plane==="L"?"L":"R",sc*ITEM_K,hm[0],hm[1],lift)}
+}
+
+
+// ================= Oggetti modellati in 3D =================
+// Primitive in coordinate locali (unità del mondo). Oggetti da appoggio: origine = centro della base.
+// Oggetti da parete: coordinate (u lungo il muro, n verso l'esterno, v in alto), origine al centro.
+const _b=(x,y,z,w,d,h,c,decos)=>({t:"b",x,y,z,w,d,h,c,decos:decos||[]});
+const bx=(cx,cy,z,w,d,h,c,decos)=>_b(cx-w/2,cy-d/2,z,w,d,h,c,decos);          // scatola centrata
+const cyl=(x,y,z,r,h,c,o={})=>({t:"c",x,y,z,r,r2:o.r2!=null?o.r2:r,h,c,top:o.top});  // cilindro / tronco di cono
+const sph=(x,y,z,r,c)=>({t:"s",x,y,z,r,c});                                   // sfera (z = centro)
+const dsk=(x,y,z,r,c,ax="z")=>({t:"d",x,y,z,r,c,ax});                         // disco piatto
+const FY=(c,u0=.1,u1=.9,w0=.15,w1=.85)=>({t:"fy",u0,u1,w0,w1,c});
+const FXd=(c,v0=.1,v1=.9,w0=.15,w1=.85)=>({t:"fx",v0,v1,w0,w1,c});
+const TOP=(c,u0=.1,v0=.1,u1=.9,v1=.9)=>({t:"rect",u0,v0,u1,v1,c});
+const FR=(c,a0,a1,w0,w1)=>({t:"front",a0,a1,w0,w1,c});                       // decoro sul fronte (oggetti da parete)
+const PAGES=FXd("#fffaf0",.06,.94,.2,.8);
+function plantM(pot,potR,potH,leaf,size){const L=[cyl(0,0,0,potR*.8,potH,pot,{r2:potR,top:"#6b4a33"})];const s=size;
+  [[0,0,potH+s*.9,s],[-s*.7,s*.5,potH+s*.55,s*.75],[s*.65,-s*.45,potH+s*.6,s*.75],[s*.35,s*.55,potH+s*1.25,s*.6],[-s*.4,-s*.4,potH+s*1.3,s*.6]].forEach(([x,y,z,r],i)=>L.push(sph(x,y,z,r,i%2?leaf:mixHex(leaf,.12))));return L}
+function foldM(c,n=2,w=.36,d=.26){const L=[];for(let i=0;i<n;i++)L.push(bx(0,0,i*.07,w,d,.07,i%2?mixHex(c,.12):c,[TOP(mixHex(c,-.1),.08,.46,.92,.54)]));return L}
+function frameM(w,h,frame,inner,art=[]){return[_b(-w/2,0,-h/2,w,.07,h,frame,[FR(inner,.09,.91,.1,.9),...art])]}
+function bottleM(c,h,r,cap){return[cyl(0,0,0,r,h,c),cyl(0,0,h,r*.4,h*.35,c),cyl(0,0,h*1.35,r*.45,h*.1,cap)]}
+const MODELS={
+ teddy:()=>[sph(0,0,.2,.2,"#c98a4f"),sph(.13,.13,.08,.07,"#c98a4f"),sph(-.04,.17,.07,.07,"#c98a4f"),sph(0,0,.48,.15,"#c98a4f"),sph(-.09,.09,.6,.06,"#a86d3a"),sph(.09,-.09,.6,.06,"#a86d3a"),sph(.08,.08,.44,.06,"#f0d1a8"),sph(.1,.1,.46,.022,"#3b2a26")],
+ alarm:()=>[bx(0,0,0,.26,.12,.24,"#e8554e",[FY("#fffaf0",.15,.85,.15,.85),FY("#3b2a26",.48,.52,.5,.78),FY("#3b2a26",.5,.72,.48,.52)]),sph(-.08,0,.27,.055,"#f2c94c"),sph(.08,0,.27,.055,"#f2c94c")],
+ books:()=>[bx(0,0,0,.42,.3,.09,"#e76f51",[PAGES]),bx(.02,-.01,.09,.38,.28,.09,"#2a9d8f",[PAGES]),bx(-.01,.01,.18,.4,.29,.08,"#f4a261",[PAGES])],
+ bookrow:()=>[["#e63946",.44],["#457b9d",.5],["#f4a261",.42],["#2a9d8f",.47],["#9d4edd",.4]].map(([c,h],i)=>bx(-.2+i*.1,0,0,.09,.3,h,c,[FY("#fff3d6",.2,.8,.7,.8)])),
+ train:()=>[bx(-.12,0,.05,.22,.18,.2,"#e63946"),bx(-.12,0,.25,.12,.16,.1,"#c1121f"),cyl(.03,0,.25,.035,.1,"#333"),bx(.12,0,.05,.2,.18,.13,"#457b9d"),...[-.19,-.05,.07,.18].map(x=>dsk(x,.091,.06,.055,"#333","y"))],
+ dino:()=>[sph(0,0,.17,.16,"#6abf69"),sph(.13,.13,.34,.1,"#6abf69"),bx(-.17,-.1,.1,.2,.08,.07,"#5aa95a"),sph(.05,.15,.04,.05,"#5aa95a"),sph(.12,-.03,.04,.05,"#5aa95a"),sph(-.05,-.05,.33,.04,"#f4d35e"),sph(-.12,-.02,.27,.035,"#f4d35e"),sph(.18,.18,.36,.02,"#3b2a26")],
+ pencils:()=>[cyl(0,0,0,.09,.17,"#4ea8de",{top:"#2b7bb9"}),bx(-.03,0,.1,.025,.025,.2,"#f4d35e"),bx(.03,.02,.1,.025,.025,.22,"#ee6c4d"),bx(0,-.03,.1,.025,.025,.18,"#7bc47f")],
+ notebook:()=>[bx(0,0,0,.36,.26,.04,"#7bdff2",[TOP("#3b2a26",.06,.1,.1,.9)]),bx(.02,.01,.04,.34,.24,.04,"#f6c445",[TOP("#3b2a26",.06,.1,.1,.9)])],
+ crayons:()=>[bx(0,0,0,.32,.14,.16,"#f6c445",[FY("#2a9d8f",.1,.9,.3,.7)]),...["#e63946","#457b9d","#2a9d8f","#9d4edd","#f77f00"].map((c,i)=>bx(-.12+i*.06,0,.16,.04,.04,.06,c))],
+ robot:()=>[bx(0,0,0,.24,.18,.22,"#a9b4c2",[FY("#e9c46a",.3,.7,.3,.6)]),bx(-.16,0,.06,.06,.07,.14,"#8e9aab"),bx(.16,0,.06,.06,.07,.14,"#8e9aab"),bx(0,0,.22,.2,.16,.15,"#c7d0db",[FY("#00b4d8",.15,.38,.35,.7),FY("#00b4d8",.62,.85,.35,.7)]),cyl(0,0,.37,.012,.09,"#666"),sph(0,0,.48,.035,"#e63946")],
+ ball:()=>[sph(0,0,.16,.16,"#fdfdfd"),sph(.06,.09,.25,.045,"#2b2b2b"),sph(-.1,.08,.12,.04,"#2b2b2b"),sph(.12,-.05,.1,.04,"#2b2b2b")],
+ torch:()=>[cyl(0,0,0,.05,.22,"#3d5a80"),cyl(0,0,.22,.075,.08,"#293241",{top:"#fff6a8"})],
+ desklamp:()=>[cyl(0,0,0,.11,.03,"#5a5a64"),bx(0,0,.03,.03,.03,.3,"#6c6c78"),cyl(.04,.04,.28,.13,.13,"#f2a65a",{r2:.05,top:"#e07b39"})],
+ piggy:()=>[sph(0,0,.13,.13,"#f7a8b8"),sph(.12,.12,.15,.055,"#f48fb1"),sph(-.05,.05,.26,.035,"#f48fb1"),sph(.05,-.05,.26,.035,"#f48fb1"),bx(0,0,.255,.06,.015,.02,"#3b2a26")],
+ cube:()=>[bx(0,0,0,.17,.17,.17,"#f94144",[FY("#277da1",.05,.48,.05,.48),FY("#f9c74f",.52,.95,.05,.48),FY("#43aa8b",.05,.48,.52,.95),FY("#ffffff",.52,.95,.52,.95),FXd("#90be6d",.05,.95,.05,.95)])],
+ car:()=>[bx(0,0,.05,.34,.17,.1,"#ffb703"),bx(-.02,0,.15,.17,.15,.08,"#ffb703",[FY("#bde0fe",.1,.9,.2,.85)]),...[-.11,.11].map(x=>dsk(x,.09,.05,.05,"#333","y"))],
+ backpack:()=>[bx(0,0,0,.34,.2,.38,"#e76f51",[FY("#d65a3d",.15,.85,.08,.45),FY("#f4a261",.45,.55,.5,.62)]),bx(0,0,.38,.16,.06,.05,"#c44536")],
+ plant:()=>plantM("#e07a5f",.13,.16,"#5fb05f",.12),
+ bigplant:()=>plantM("#f2cc8f",.22,.34,"#4e9a4e",.2),
+ basil:()=>plantM("#ffffff",.11,.13,"#6cc06c",.09),
+ globe:()=>[cyl(0,0,0,.1,.03,"#8d6e63"),bx(0,0,.03,.025,.025,.12,"#8d6e63"),sph(0,0,.3,.16,"#4cc9f0"),sph(.06,.08,.36,.06,"#7bc47f"),sph(-.08,.02,.25,.05,"#7bc47f")],
+ laptop:()=>[bx(0,0,0,.44,.3,.03,"#c0c4cc",[TOP("#9aa0aa",.1,.15,.9,.6)]),bx(0,-.14,.03,.44,.03,.28,"#a7adb7",[FY("#5fa8d3",.06,.94,.08,.92),FY("#9ad1f5",.1,.3,.6,.85)])],
+ mug:()=>[cyl(0,0,0,.1,.19,"#f28482",{top:"#6b3e26"}),bx(.12,0,.05,.05,.03,.1,"#f28482")],
+ cups:()=>[cyl(-.08,0,0,.08,.15,"#84a59d",{top:"#6b3e26"}),bx(.02,0,.04,.04,.03,.08,"#84a59d"),cyl(.1,.06,0,.08,.15,"#f6bd60",{top:"#6b3e26"}),bx(.2,.06,.04,.04,.03,.08,"#f6bd60")],
+ radio:()=>[bx(0,0,0,.38,.15,.22,"#e9c46a",[FY("#6d4c41",.06,.5,.15,.85),FY("#3b2a26",.62,.9,.6,.75)]),dsk(.1,.076,.09,.045,"#3b2a26","y"),bx(.14,0,.22,.015,.015,.22,"#888")],
+ noodles:()=>[cyl(0,0,0,.09,.17,"#fff3e0",{r2:.12,top:"#e9c46a"}),bx(.02,0,.17,.015,.015,.14,"#c8915e"),bx(-.02,.01,.17,.015,.015,.14,"#c8915e")],
+ milk:()=>[bx(0,0,0,.16,.16,.3,"#ffffff",[FY("#4ea8de",0,1,.25,.6),FXd("#4ea8de",0,1,.25,.6)]),bx(0,0,.3,.16,.06,.07,"#f1f1f1")],
+ juice:()=>[bx(0,0,0,.14,.1,.2,"#ffb703",[FY("#fb8500",.1,.9,.3,.7)]),bx(.04,0,.2,.012,.012,.08,"#e63946")],
+ guitar:()=>[dsk(0,-.04,.24,.23,"#8a4b2a","y"),dsk(0,-.04,.52,.17,"#8a4b2a","y"),dsk(0,.02,.24,.22,"#d08c4f","y"),dsk(0,.02,.52,.16,"#d08c4f","y"),dsk(0,.03,.4,.06,"#3b2a26","y"),bx(0,0,.6,.07,.04,.55,"#6d4c41"),bx(0,0,1.13,.1,.05,.13,"#4e342e")],
+ shoes:()=>[bx(-.09,0,0,.13,.32,.05,"#f1f1f1"),bx(-.09,.04,.05,.12,.22,.08,"#e63946"),bx(.09,.03,0,.13,.32,.05,"#f1f1f1"),bx(.09,.07,.05,.12,.22,.08,"#e63946")],
+ slippers:()=>[bx(-.08,0,0,.13,.3,.06,"#f7a8b8"),sph(-.08,.08,.08,.05,"#fff"),bx(.08,.03,0,.13,.3,.06,"#f7a8b8"),sph(.08,.11,.08,.05,"#fff")],
+ headphones:()=>[cyl(-.11,0,0,.07,.07,"#333",{top:"#555"}),cyl(.11,0,0,.07,.07,"#333",{top:"#555"}),bx(0,0,.06,.24,.04,.035,"#ef476f")],
+ toothbrush:()=>[cyl(0,0,0,.07,.13,"#9bd1e5",{top:"#7cb9d1"}),bx(-.02,0,.08,.02,.02,.22,"#f28482"),bx(-.02,0,.3,.03,.04,.04,"#fff"),bx(.03,.01,.08,.02,.02,.2,"#90be6d")],
+ soap:()=>[bx(0,0,0,.22,.15,.04,"#ffffff"),bx(0,0,.04,.17,.11,.07,"#f7a8b8"),sph(.05,.02,.14,.025,"#e3f6ff")],
+ shampoo:()=>[bx(0,0,0,.14,.1,.26,"#80cbc4",[FY("#ffffff",.2,.8,.3,.7)]),cyl(0,0,.26,.035,.05,"#ffffff"),bx(.03,0,.31,.07,.02,.02,"#ffffff")],
+ gel:()=>[bx(0,0,0,.14,.1,.24,"#cdb4db",[FY("#ffffff",.2,.8,.3,.7)]),cyl(0,0,.24,.04,.04,"#9d4edd")],
+ sponge:()=>[bx(0,0,0,.2,.13,.06,"#f6d55c"),bx(0,0,.06,.2,.13,.035,"#6abf69")],
+ duck:()=>[sph(0,0,.1,.11,"#ffd60a"),sph(.07,.07,.22,.075,"#ffd60a"),bx(.14,.14,.2,.07,.07,.03,"#fb8500"),sph(.1,.06,.25,.015,"#3b2a26")],
+ tp:()=>[cyl(0,0,0,.12,.2,"#ffffff",{top:"#f5f5f5"}),dsk(0,0,.202,.045,"#cfc6b8")],
+ basket:()=>[cyl(0,0,0,.24,.36,"#d4a373",{r2:.29,top:"#8d6e52"}),sph(0,0,.36,.13,"#9ecae1"),sph(.1,-.06,.38,.1,"#f7a8b8")],
+ laundry:()=>[cyl(0,0,0,.24,.34,"#adc178",{r2:.28,top:"#6c584c"}),sph(0,0,.34,.13,"#ffffff"),sph(.1,-.05,.36,.1,"#ffd166")],
+ razor:()=>[bx(0,0,0,.04,.04,.22,"#4361ee"),bx(0,0,.22,.13,.05,.04,"#adb5bd")],
+ toothpaste:()=>[bx(0,0,0,.3,.08,.06,"#ffffff",[FY("#e63946",.25,.75,0,1),TOP("#e63946",.25,0,.75,1)]),cyl(-.17,0,0,.035,.06,"#4361ee")],
+ towels:()=>[bx(0,0,0,.34,.24,.07,"#9ad1d4"),bx(0,0,.07,.34,.24,.07,"#f6bd60"),bx(0,0,.14,.34,.24,.07,"#f7a8b8")],
+ hairdryer:()=>[bx(-.04,0,0,.07,.07,.16,"#c77dff"),bx(0,0,.14,.26,.11,.11,"#c77dff"),cyl(.14,0,.15,.04,.09,"#9d4edd")],
+ cotton:()=>[cyl(0,0,0,.09,.17,"#e0fbfc",{top:"#ffffff"}),sph(0,0,.2,.06,"#ffffff"),sph(.04,.03,.19,.045,"#ffffff")],
+ bathsalts:()=>[cyl(0,0,0,.1,.17,"#d0bfff",{top:"#b197fc"}),cyl(0,0,.17,.105,.04,"#ffffff")],
+ cactus:()=>[cyl(0,0,0,.09,.12,"#e07a5f",{r2:.11}),cyl(0,0,.12,.055,.22,"#5fb05f",{top:"#6cc06c"}),cyl(.08,0,.2,.03,.09,"#5fb05f"),sph(0,0,.35,.03,"#ff8fab")],
+ salt:()=>[cyl(0,0,0,.05,.14,"#ffffff"),cyl(0,0,.14,.05,.04,"#c0c0c0",{r2:.03})],
+ pepper:()=>[cyl(0,0,0,.05,.14,"#5c4033"),cyl(0,0,.14,.05,.04,"#c0c0c0",{r2:.03})],
+ pan:()=>[cyl(0,0,0,.2,.06,"#3a3a40",{top:"#55555e"}),bx(.33,0,.03,.26,.05,.03,"#3a3a40"),sph(0,0,.07,.06,"#ffe066")],
+ pot:()=>[cyl(0,0,0,.2,.24,"#b0bec5",{top:"#90a4ae"}),cyl(0,0,.24,.21,.03,"#cfd8dc"),sph(0,0,.29,.03,"#333"),bx(-.24,0,.18,.07,.05,.03,"#333"),bx(.24,0,.18,.07,.05,.03,"#333")],
+ teapot:()=>[sph(0,0,.15,.15,"#f28482"),cyl(0,0,.27,.06,.04,"#f28482"),sph(0,0,.33,.03,"#ffffff"),bx(.19,0,.12,.12,.04,.04,"#f28482"),bx(-.18,0,.1,.04,.03,.12,"#f28482")],
+ kettle:()=>[cyl(0,0,0,.14,.22,"#e5e5e5",{r2:.11,top:"#cfcfcf"}),bx(0,0,.26,.18,.03,.04,"#3b2a26"),bx(.15,0,.14,.1,.04,.04,"#e5e5e5")],
+ recipe:()=>[bx(0,0,0,.36,.28,.07,"#a5d6a7",[PAGES,TOP("#ffffff",.3,.3,.7,.7)])],
+ plates:()=>[cyl(0,0,0,.22,.025,"#ffffff"),cyl(0,0,.03,.22,.025,"#ffffff"),cyl(0,0,.06,.22,.025,"#ffffff",{top:"#f4fbff"}),dsk(0,0,.086,.14,"#dfeef5")],
+ bowls:()=>[cyl(0,0,0,.1,.1,"#bde0fe",{r2:.17,top:"#90c2e7"}),cyl(0,0,.06,.1,.1,"#ffc8dd",{r2:.17,top:"#f7a8c4"})],
+ glasses:()=>[-.08,.08].flatMap((x,i)=>[cyl(x,i*.06,0,.05,.01,"#d9f0f7"),cyl(x,i*.06,.01,.012,.1,"#cfe8f2"),cyl(x,i*.06,.11,.035,.1,"#e8f7fc",{r2:.055,top:"#a4161a"})]),
+ fruitbowl:()=>[cyl(0,0,0,.14,.1,"#e9c46a",{r2:.22,top:"#c9a24a"}),sph(-.07,0,.15,.08,"#e63946"),sph(.07,.03,.15,.08,"#90be6d"),sph(0,-.06,.2,.075,"#f4a261")],
+ apples:()=>[sph(-.07,0,.08,.08,"#e63946"),sph(.07,.02,.08,.08,"#e63946"),sph(0,-.05,.2,.075,"#90be6d"),bx(0,-.05,.27,.012,.012,.04,"#6d4c41")],
+ cheese:()=>[bx(0,0,0,.28,.2,.13,"#ffd166",[FY("#e9b949",.15,.28,.3,.55),FY("#e9b949",.55,.68,.5,.75),FXd("#e9b949",.3,.5,.3,.55),TOP("#ffe08a",.05,.05,.95,.4)])],
+ eggs:()=>[bx(0,0,0,.32,.18,.06,"#d7ccc8"),sph(-.1,0,.1,.05,"#fff8e7"),sph(0,0,.1,.05,"#f5e6c8"),sph(.1,0,.1,.05,"#fff8e7")],
+ butter:()=>[bx(0,0,0,.22,.13,.08,"#fff3b0",[FY("#4ea8de",0,1,0,.55),FXd("#4ea8de",0,1,0,.55)])],
+ strawberries:()=>[bx(0,0,0,.26,.18,.08,"#90be6d"),sph(-.07,-.03,.11,.05,"#e63946"),sph(.06,.02,.11,.05,"#e63946"),sph(0,-.04,.15,.045,"#d62839"),sph(.08,-.04,.13,.04,"#e63946")],
+ jar:()=>[cyl(0,0,0,.1,.2,"#f4a261",{top:"#e76f51"}),cyl(0,0,.2,.095,.045,"#e63946"),bx(0,.1,.06,.12,.005,.08,"#fffaf0")],
+ toaster:()=>[bx(0,0,0,.32,.2,.2,"#9fb8ad",[TOP("#3b2a26",.12,.25,.88,.38),TOP("#3b2a26",.12,.62,.88,.75),FY("#e9e9e9",.4,.6,.6,.75)]),bx(.17,0,.12,.03,.04,.03,"#3b2a26")],
+ board:()=>[bx(0,0,0,.42,.26,.03,"#deb887"),bx(.25,0,0,.1,.08,.03,"#deb887"),bx(-.05,0,.03,.14,.06,.04,"#e63946"),sph(.08,.02,.06,.04,"#f4a261")],
+ vase:()=>[cyl(0,0,0,.07,.2,"#a2d2ff",{r2:.05}),bx(0,0,.2,.012,.012,.14,"#5aa95a"),bx(.04,0,.2,.012,.012,.11,"#5aa95a"),sph(0,0,.36,.06,"#ff8fab"),sph(.06,.02,.32,.05,"#ffd60a"),sph(-.05,.03,.31,.05,"#cdb4db")],
+ flowers:()=>[cyl(0,0,0,.09,.22,"#ffffff",{r2:.07}),...[[0,0,.42,"#ff8fab"],[.07,.03,.37,"#ffd60a"],[-.06,.04,.36,"#ffafcc"],[.02,-.07,.39,"#cdb4db"]].map(([x,y,z,c])=>sph(x,y,z,.06,c)),bx(0,0,.22,.015,.015,.15,"#5aa95a")],
+ perfume:()=>[bx(0,0,0,.13,.08,.16,"#cdb4db",[FY("#ffffff",.25,.75,.35,.65)]),cyl(0,0,.16,.03,.05,"#e9c46a")],
+ candle:()=>[cyl(0,0,0,.07,.18,"#fff1e6",{top:"#ffe5d9"}),bx(0,0,.18,.01,.01,.03,"#3b2a26"),sph(0,0,.24,.028,"#ffb703")],
+ pajama:()=>foldM("#a2d2ff",2),
+ socks:()=>[bx(-.06,0,0,.12,.26,.05,"#ffafcc",[TOP("#ffffff",0,0,1,.2)]),bx(.07,.02,0,.12,.26,.05,"#bde0fe",[TOP("#ffffff",0,0,1,.2)])],
+ shirt:()=>foldM("#4ea8de",2),
+ sweater:()=>foldM("#e9c46a",3),
+ dress:()=>foldM("#ff8fab",2,.4,.28),
+ scarf:()=>[bx(0,0,0,.38,.18,.06,"#e63946",[TOP("#ffffff",.2,0,.28,1),TOP("#ffffff",.55,0,.63,1)]),bx(0,0,.06,.38,.18,.05,"#c1121f",[TOP("#ffffff",.2,0,.28,1)])],
+ lamp:()=>[cyl(0,0,0,.09,.04,"#c8915e"),bx(0,0,.04,.03,.03,.24,"#c8915e"),cyl(0,0,.24,.15,.16,"#fff3d6",{r2:.09,top:"#ffe8a8"})],
+ floorlamp:()=>[cyl(0,0,0,.16,.04,"#3b2a26"),bx(0,0,.04,.04,.04,1.25,"#3b2a26"),cyl(0,0,1.25,.24,.26,"#fff3d6",{r2:.15,top:"#ffe8a8"})],
+ jewelry:()=>[bx(0,0,0,.24,.17,.11,"#9d4edd",[FY("#e9c46a",.45,.55,.5,.75)]),bx(0,0,.11,.25,.18,.04,"#b5179e")],
+ hairbrush:()=>[bx(0,0,0,.3,.1,.04,"#f4a261"),bx(.08,0,.04,.12,.1,.04,"#3b2a26")],
+ hat:()=>[cyl(0,0,0,.24,.025,"#e9c46a"),cyl(0,0,.025,.13,.13,"#e9c46a",{top:"#f2d88a"}),cyl(0,0,.05,.135,.035,"#e63946")],
+ phone:()=>[bx(0,0,0,.12,.22,.025,"#2b2d42",[TOP("#5fa8d3",.1,.08,.9,.92)])],
+ suitcase:()=>[bx(0,0,0,.52,.24,.42,"#2a9d8f",[FY("#21867a",.2,.25,.05,.95),FY("#21867a",.75,.8,.05,.95)]),bx(0,0,.42,.16,.05,.05,"#3b2a26")],
+ yarn:()=>[sph(0,0,.13,.13,"#f28482"),sph(.12,.02,.07,.07,"#84a59d"),bx(-.05,0,.15,.03,.015,.015,"#f2f2f2"),bx(.02,.02,.18,.2,.012,.012,"#e9c46a")],
+ cushion:()=>[bx(0,0,0,.4,.36,.14,"#f6bd60",[TOP("#f7a072",.3,.3,.7,.7)])],
+ tv:()=>[bx(0,0,0,.36,.18,.04,"#333"),bx(0,0,.04,.07,.07,.12,"#333"),bx(0,0,.16,.95,.06,.58,"#2b2b33",[FY("#4361ee",.04,.96,.06,.94),FY("#7ac7f5",.08,.35,.55,.88)])],
+ joypad:()=>[bx(0,0,0,.26,.14,.06,"#5c5c66"),sph(-.07,.03,.07,.025,"#e63946"),sph(.07,.03,.07,.025,"#2a9d8f"),sph(.1,0,.07,.02,"#ffd60a")],
+ console:()=>[bx(0,0,0,.42,.26,.08,"#f1f1f1",[FY("#4cc9f0",.08,.3,.4,.6)]),bx(0,0,.08,.36,.22,.02,"#3b2a26")],
+ remote:()=>[bx(0,0,0,.08,.3,.03,"#2b2d42",[TOP("#e63946",.3,.1,.7,.2)])],
+ records:()=>[bx(0,0,0,.34,.34,.025,"#e76f51"),bx(0,0,.025,.34,.34,.025,"#2a9d8f"),bx(0,0,.05,.34,.34,.025,"#f4a261",[TOP("#3b2a26",.2,.2,.8,.8)]),dsk(0,0,.076,.05,"#e9c46a")],
+ camera:()=>[bx(0,0,0,.26,.14,.16,"#3b3b42",[FY("#5c5c66",0,1,.75,1)]),dsk(0,.071,.08,.055,"#90e0ef","y"),bx(-.08,0,.16,.06,.06,.03,"#5c5c66"),sph(.09,0,.17,.015,"#e63946")],
+ magazines:()=>[bx(0,0,0,.34,.26,.025,"#ffafcc"),bx(.02,.01,.025,.34,.26,.025,"#a2d2ff"),bx(-.01,0,.05,.34,.26,.025,"#ffd166",[TOP("#e63946",.1,.1,.6,.3)])],
+ boardgames:()=>[bx(0,0,0,.4,.32,.07,"#2a9d8f",[TOP("#e9c46a",.1,.1,.9,.4)]),bx(.02,0,.07,.36,.28,.06,"#e63946",[TOP("#ffffff",.1,.1,.9,.3)])],
+ speaker:()=>[bx(0,0,0,.2,.18,.38,"#3b2a26",[FY("#5c4033",0,1,0,1)]),dsk(0,.091,.12,.07,"#222","y"),dsk(0,.091,.28,.045,"#222","y")],
+ bread:()=>[bx(0,0,0,.52,.13,.11,"#d4a373",[TOP("#b5835a",.15,.3,.25,.7),TOP("#b5835a",.45,.3,.55,.7),TOP("#b5835a",.75,.3,.85,.7)])],
+ wine:()=>bottleM("#2d6a4f",.26,.07,"#e9c46a"),
+ oil:()=>bottleM("#e9c46a",.24,.06,"#2d6a4f"),
+ grapes:()=>[[0,0,.06],[-.05,.04,.06],[.05,.04,.06],[0,-.05,.06],[-.03,0,.14],[.03,.02,.14],[0,0,.21]].map(([x,y,z])=>sph(x,y,z,.055,"#7b2cbf")).concat([bx(0,0,.26,.012,.012,.05,"#6d4c41")]),
+ coffeemaker:()=>[bx(0,0,0,.26,.24,.04,"#3b2a26"),bx(0,-.08,.04,.26,.08,.36,"#3b2a26"),bx(0,0,.32,.26,.24,.08,"#3b2a26"),cyl(0,.03,.04,.08,.16,"#bde0fe",{top:"#6b3e26"})],
+ monitor:()=>[bx(0,0,0,.22,.16,.02,"#444"),bx(0,0,.02,.05,.05,.2,"#444"),bx(0,-.02,.2,.82,.05,.5,"#26262e",[FY("#4ea8de",.03,.97,.05,.95),FY("#9ad1f5",.06,.4,.55,.9)])],
+ keyboard:()=>[bx(0,0,0,.52,.17,.03,"#e9ecef",[TOP("#ced4da",.05,.15,.95,.85)])],
+ mouse:()=>[bx(0,0,0,.08,.12,.045,"#e9ecef",[TOP("#adb5bd",.45,0,.55,.4)])],
+ binders:()=>[["#4361ee",.4],["#f72585",.4],["#4cc9f0",.4]].map(([c,h],i)=>bx(-.12+i*.12,0,0,.11,.3,h,c,[FY("#ffffff",.25,.75,.55,.75)])),
+ trophy:()=>[bx(0,0,0,.16,.16,.06,"#6d4c41"),cyl(0,0,.06,.025,.08,"#e9c46a"),cyl(0,0,.14,.05,.16,"#f4d35e",{r2:.11,top:"#e9b949"})],
+ pencup:()=>[cyl(0,0,0,.08,.16,"#3b2a26"),bx(-.02,0,.1,.02,.02,.18,"#4361ee"),bx(.02,.02,.1,.02,.02,.16,"#e63946")],
+ printer:()=>[bx(0,0,0,.46,.32,.18,"#dee2e6",[FY("#adb5bd",.2,.8,.55,.7)]),bx(0,-.04,.18,.3,.2,.02,"#ffffff")],
+ bottle:()=>[cyl(0,0,0,.06,.18,"#ffffff",{top:"#bde0fe"}),cyl(0,0,.18,.045,.05,"#ffafcc"),sph(0,0,.25,.03,"#ffe5b4")],
+ cream:()=>[cyl(0,0,0,.08,.1,"#ffffff",{top:"#bde0fe"}),cyl(0,0,.1,.085,.03,"#a2d2ff")],
+ rattle:()=>[bx(0,0,0,.035,.035,.18,"#ffd166"),sph(0,0,.24,.08,"#ff8fab"),sph(0,0,.24,.035,"#ffffff")],
+ blocks:()=>[bx(-.1,0,0,.15,.15,.15,"#e63946",[FY("#ffffff",.3,.7,.3,.7)]),bx(.08,.02,0,.15,.15,.15,"#4361ee",[FY("#ffffff",.3,.7,.3,.7)]),bx(-.01,.01,.15,.15,.15,.15,"#ffd166",[FY("#ffffff",.3,.7,.3,.7)])],
+ nightlight:()=>[cyl(0,0,0,.08,.04,"#cdb4db"),sph(0,0,.13,.1,"#fff6c8")],
+ diapers:()=>[bx(0,0,0,.36,.22,.24,"#bde0fe",[FY("#ffffff",.2,.8,.3,.7),FY("#ffafcc",.4,.6,.42,.58)])],
+ bunny:()=>[sph(0,0,.13,.13,"#f8f9fa"),sph(.04,.04,.32,.1,"#f8f9fa"),bx(0,0,.4,.04,.03,.18,"#f8f9fa"),bx(.07,.07,.4,.04,.03,.16,"#f8f9fa"),sph(.12,.12,.33,.02,"#ff8fab")],
+ musicbox:()=>[bx(0,0,0,.24,.18,.12,"#ffafcc",[FY("#e9c46a",.4,.6,.4,.6)]),cyl(0,0,.12,.02,.06,"#e9c46a"),sph(0,0,.22,.05,"#ffffff")],
+ puzzle:()=>[bx(0,0,0,.5,.4,.03,"#ffd166",[TOP("#ef476f",.05,.05,.5,.5),TOP("#06d6a0",.5,.05,.95,.5),TOP("#118ab2",.05,.5,.5,.95)])],
+ // --- da parete (u, n, v) ---
+ drawing:()=>frameM(.66,.5,"#ffd166","#ffffff",[FR("#90be6d",.05,.95,.08,.26),FR("#e63946",.09,.27,.5,.8),FR("#ffd60a",.31,.49,.5,.8),FR("#52b788",.53,.71,.5,.8),FR("#4361ee",.75,.93,.5,.8)]),
+ poster:()=>frameM(.6,.82,"#2b2d42","#ffafcc",[FR("#4361ee",.12,.88,.45,.9),FR("#ffd60a",.3,.7,.12,.38)]),
+ map:()=>frameM(.9,.62,"#d4a373","#a8dadc",[FR("#90be6d",.15,.4,.45,.8),FR("#90be6d",.5,.62,.2,.5),FR("#90be6d",.7,.88,.55,.85)]),
+ photo:()=>frameM(.52,.62,"#b08968","#ffd6a5",[FR("#f28482",.15,.45,.15,.6),FR("#84a59d",.55,.85,.15,.65),FR("#3b2a26",.22,.38,.62,.82),FR("#3b2a26",.62,.78,.66,.86)]),
+ weddingphoto:()=>frameM(.56,.66,"#e9c46a","#e0fbfc",[FR("#ffffff",.15,.45,.12,.62),FR("#3b2a26",.55,.85,.12,.66),FR("#f2c6a0",.22,.38,.64,.82),FR("#f2c6a0",.62,.78,.68,.86)]),
+ painting:()=>frameM(.84,.6,"#7f5539","#ffe5d9",[FR("#80b918",.08,.92,.1,.4),FR("#55a630",.2,.6,.3,.6),FR("#ffb703",.7,.82,.65,.85)]),
+ diploma:()=>frameM(.64,.48,"#3b2a26","#fff8e7",[FR("#adb5bd",.15,.85,.6,.7),FR("#adb5bd",.15,.7,.4,.5),FR("#e63946",.72,.88,.12,.3)]),
+ calendar:()=>frameM(.42,.56,"#ffffff","#ffffff",[FR("#e63946",0,1,.78,1),FR("#dee2e6",.1,.9,.1,.7)]),
+ mirror:()=>frameM(.5,.74,"#c9a273","#d7eef5",[FR("#ffffff",.2,.35,.25,.8)]),
+ clock:()=>[dsk(0,.03,0,.3,"#3b2a26","n"),dsk(0,.05,0,.26,"#fffaf0","n")],
+ ring:()=>[cyl(0,0,0,.09,.035,"#e9c46a",{top:"#f4d35e"}),dsk(0,0,.036,.06,"#c9a227"),sph(0,.07,.08,.045,"#90e0ef")],
+ star:()=>[{t:"sh",n:.04,c:"#ffd60a",pts:Array.from({length:10},(_,k)=>{const a=-Math.PI/2+k*Math.PI/5,r=k%2?.13:.3;return[Math.cos(a)*r,-Math.sin(a)*r]})}],
+ moon:()=>[{t:"sh",n:.04,c:"#fff3b0",pts:Array.from({length:13},(_,i)=>{const a=(-100+i*200/12)*Math.PI/180;return[Math.cos(a)*.28,Math.sin(a)*.28]}).concat(Array.from({length:13},(_,i)=>{const a=(75-i*150/12)*Math.PI/180;return[-.12+Math.cos(a)*.26,Math.sin(a)*.26]}))}],
+};
+const WALLM=new Set(["drawing","poster","map","photo","weddingphoto","painting","diploma","calendar","mirror","clock","star","moon"]);
+// converte un modello da parete nelle coordinate del mondo (lato L o R)
+function wallTo(prims,side){
+  return prims.map(p=>{
+    if(p.t==="b"){
+      const fr=p.decos.filter(d=>d.t==="front");
+      if(side==="R")return{...p,x:p.x,y:p.y,z:p.z,w:p.w,d:p.d,decos:fr.map(d=>({t:"fy",u0:d.a0,u1:d.a1,w0:d.w0,w1:d.w1,c:d.c}))};
+      return{...p,x:p.y,y:-(p.x+p.w),w:p.d,d:p.w,decos:fr.map(d=>({t:"fx",v0:1-d.a1,v1:1-d.a0,w0:d.w0,w1:d.w1,c:d.c}))};
+    }
+    if(p.t==="d")return side==="R"?{...p,x:p.x,y:p.y,ax:"y"}:{...p,x:p.y,y:-p.x,ax:"x"};
+    if(p.t==="sh")return{...p,side};
+    return p;
+  });
+}
+function extOf(prims){
+  let e={x0:1e9,x1:-1e9,y0:1e9,y1:-1e9,z0:1e9,z1:-1e9};const add=(x,y,z)=>{e.x0=Math.min(e.x0,x);e.x1=Math.max(e.x1,x);e.y0=Math.min(e.y0,y);e.y1=Math.max(e.y1,y);e.z0=Math.min(e.z0,z);e.z1=Math.max(e.z1,z)};
+  for(const p of prims){
+    if(p.t==="b"){add(p.x,p.y,p.z);add(p.x+p.w,p.y+p.d,p.z+p.h)}
+    else if(p.t==="c"){const r=Math.max(p.r,p.r2);add(p.x-r,p.y-r,p.z);add(p.x+r,p.y+r,p.z+p.h)}
+    else if(p.t==="s"){add(p.x-p.r,p.y-p.r,p.z-p.r);add(p.x+p.r,p.y+p.r,p.z+p.r)}
+    else if(p.t==="d"){const r=p.r;if(p.ax==="z"){add(p.x-r,p.y-r,p.z);add(p.x+r,p.y+r,p.z)}else if(p.ax==="x"){add(p.x,p.y-r,p.z-r);add(p.x,p.y+r,p.z+r)}else{add(p.x-r,p.y,p.z-r);add(p.x+r,p.y,p.z+r)}}
+    else if(p.t==="sh"){for(const[u,v]of p.pts){if(p.side==="L")add(p.n,-u,v);else add(u,p.n,v)}}
+  }
+  return e;
+}
+function makeModel(key){
+  const raw=MODELS[key]();if(WALLM.has(key)){const mL=wallTo(raw,"L"),mR=wallTo(raw,"R");mL.keep=mR.keep=true;return{wall:true,mL,mR,eL:extOf(mL),eR:extOf(mR)}}
+  return{wall:false,m:raw,e:extOf(raw)};
+}
+function primKey(p){if(p.t==="b")return p.x+p.w/2+p.y+p.d/2;if(p.t==="sh")return 9;return p.x+p.y}
+function primZ(p){return p.t==="s"?p.z-p.r:p.z}
+// disegna un modello con base nel punto schermo (sx,sy)
+function drawModel(prims,sx,sy,k,glow,alpha){
+  const Q=(x,y,z)=>[sx+(x-y)*U*k,sy+(x+y)*U/2*k-z*ZU*k];
+  const list=prims.keep?prims:prims.slice().sort((a,b)=>(primKey(a)-primKey(b))||(primZ(a)-primZ(b)));
+  ctx.save();if(alpha!=null)ctx.globalAlpha=alpha;
+  if(glow){ctx.shadowColor=glow;ctx.shadowBlur=14}
+  for(const p of list){
+    if(p.t==="b")drawSolid(p,null,Q,k);
+    else if(p.t==="c")drawCyl(p,Q,k);
+    else if(p.t==="s")drawSph(p,Q,k);
+    else if(p.t==="d")drawDisc(p,Q,k);
+    else if(p.t==="sh"){const pts=p.pts.map(([u,v])=>p.side==="L"?Q(p.n,-u,v):Q(u,p.n,v));rpath(pts,1.5);ctx.fillStyle=p.c;ctx.fill();ctx.lineJoin="round";ctx.strokeStyle=INK;ctx.lineWidth=1.6*k;ctx.stroke()}
+  }
+  ctx.restore();
+}
+function drawCyl(p,Q,k){
+  const c0=Q(p.x,p.y,p.z),c1=Q(p.x,p.y,p.z+p.h),rx0=p.r*U*1.414*k,ry0=p.r*U*.707*k,rx1=p.r2*U*1.414*k,ry1=p.r2*U*.707*k;
+  ctx.beginPath();ctx.moveTo(c0[0]-rx0,c0[1]);ctx.ellipse(c0[0],c0[1],rx0,ry0,0,Math.PI,0,true);ctx.lineTo(c1[0]+rx1,c1[1]);ctx.ellipse(c1[0],c1[1],rx1,ry1,0,0,Math.PI,true);ctx.closePath();
+  const g=ctx.createLinearGradient(c0[0]-Math.max(rx0,rx1),0,c0[0]+Math.max(rx0,rx1),0);g.addColorStop(0,shade(p.c,.18));g.addColorStop(.35,shade(p.c,.05));g.addColorStop(1,shade(p.c,-.28));
+  ctx.fillStyle=g;ctx.fill();ctx.lineJoin="round";ctx.strokeStyle=INK;ctx.lineWidth=1.4*k;ctx.stroke();
+  ctx.beginPath();ctx.ellipse(c1[0],c1[1],rx1,ry1,0,0,Math.PI*2);ctx.fillStyle=p.top||shade(p.c,.15);ctx.fill();ctx.lineWidth=1.2*k;ctx.stroke();
+  if(p.top&&p.r2>.06){ctx.beginPath();ctx.ellipse(c1[0],c1[1],rx1*.82,ry1*.78,0,Math.PI*1.05,Math.PI*1.95);ctx.strokeStyle="rgba(255,255,255,.35)";ctx.lineWidth=1.2*k;ctx.stroke()}
+}
+function drawSph(p,Q,k){
+  const c=Q(p.x,p.y,p.z),r=p.r*U*.98*k;
+  const g=ctx.createRadialGradient(c[0]-r*.35,c[1]-r*.4,r*.1,c[0],c[1],r);g.addColorStop(0,shade(p.c,.35));g.addColorStop(.55,p.c);g.addColorStop(1,shade(p.c,-.25));
+  ctx.beginPath();ctx.arc(c[0],c[1],r,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();ctx.strokeStyle=INK;ctx.lineWidth=1.3*k;ctx.stroke();
+  if(r>5){ctx.beginPath();ctx.ellipse(c[0]-r*.35,c[1]-r*.42,r*.22,r*.13,-.6,0,Math.PI*2);ctx.fillStyle="rgba(255,255,255,.7)";ctx.fill()}
+}
+function drawDisc(p,Q,k){
+  const pts=[];for(let i=0;i<24;i++){const a=i/24*Math.PI*2,ca=Math.cos(a)*p.r,sa=Math.sin(a)*p.r;
+    pts.push(p.ax==="z"?Q(p.x+ca,p.y+sa,p.z):p.ax==="x"?Q(p.x,p.y+ca,p.z+sa):Q(p.x+ca,p.y,p.z+sa))}
+  poly(pts,p.c,INK,1.2*k);
+}
+
+// ================= Enigmi =================
+const PCOL={rosso:"#e63946",giallo:"#ffd60a",verde:"#52b788",blu:"#4361ee",viola:"#9d4edd",arancione:"#f77f00"};
+const NOTES={Do:261.6,Re:293.7,Mi:329.6,Fa:349.2,Sol:392,La:440};
+const PUZZLES={
+ 0:{clues:{drawing:"Nel tuo disegno ci sono quattro palloncini. Da sinistra: rosso, giallo, verde e blu."},
+  list:[{type:"bulbs",title:"Le lucine",desc:"Sulla parete c'è una fila di lucine spente. Avvita le lampadine colorate nell'ordine giusto.",
+   colors:["rosso","giallo","verde","blu","viola"],answer:["rosso","giallo","verde","blu"],prop:{type:"garland",side:"R",a0:.4,a1:3.0,z:4.5,n:4},
+   hint:"Guarda bene il disegno appeso: i colori hanno un ordine.",done:"Le lucine si accendono!"}]},
+ 1:{clues:{radio:"Sotto la radio c'è un post-it del coinquilino: «FRIGO: 4 2 7. Non toccare il mio yogurt!»"},
+  list:[{type:"code",title:"Il frigo del coinquilino",desc:"Il coinquilino ha messo un lucchetto al frigo! Serve una combinazione di 3 cifre.",n:3,answer:"427",lock:"fridge",
+   hint:"Il coinquilino lascia post-it ovunque. Tocca gli oggetti per guardarli da vicino.",done:"Click! Il lucchetto del frigo si apre."}]},
+ 2:{clues:{shampoo:"Sull'etichetta dello shampoo c'è disegnata una X: i quattro angoli e il centro."},
+  list:[{type:"tiles",title:"Le piastrelle magiche",desc:"Sopra il water c'è un riquadro di 9 piastrelle che si girano. Forma il disegno giusto.",answer:[1,0,1,0,1,0,1,0,1],prop:{type:"tiles",side:"R",a0:3.25,z0:2.8,size:1.05},
+   hint:"Qualche flacone ha un disegno sull'etichetta.",done:"Le piastrelle brillano!"}]},
+ 3:{clues:{recipe:"Torta della nonna: «Infornare alle 4 e mezza in punto»."},
+  list:[{type:"clock",title:"L'ora della torta",desc:"Regola l'orologio sull'ora giusta.",answer:[4,30],item:"clock",needPlace:"Prima appendi l'orologio al muro.",
+   hint:"Il ricettario dice a che ora infornare.",done:"Din don! È l'ora della torta."}]},
+ 4:{clues:{photo:"Dietro la foto c'è scritto: «Il giorno in cui ci siamo conosciuti: 12/09»."},
+  list:[{type:"code",title:"Il portagioie",desc:"Il portagioie ha una serratura a 4 cifre.",n:4,answer:"1209",item:"jewelry",needPlace:"Prima metti il portagioie al suo posto.",reward:"ring",
+   hint:"Le date importanti si scrivono dietro le foto.",done:"Dentro c'è un anello! Trovagli un posto."}]},
+ 5:{clues:{towels:"L'etichetta degli asciugamani dice: «Lavare a 60°»."},
+  list:[{type:"dial",title:"La lavatrice",desc:"Gira la manopola sulla temperatura giusta per il bucato.",options:["20°","30°","40°","60°","90°"],answer:"60°",box:"washer",
+   hint:"Le etichette dicono sempre come lavare.",done:"La lavatrice parte: brum brum!"}]},
+ 6:{clues:{magazines:"Sulla guida TV c'è un programma cerchiato: «Il nostro film preferito – canale 512»."},
+  list:[{type:"code",title:"Il canale giusto",desc:"Accendi la TV sul canale del vostro film preferito.",n:3,answer:"512",item:"tv",needPlace:"Prima sistema la TV sul mobile.",
+   hint:"Sfoglia le riviste.",done:"Parte il film! Serata perfetta."}]},
+ 7:{clues:{fruitbowl:"Nella fruttiera, da sinistra: una mela rossa, una pera verde, un'arancia e un limone giallo."},
+  list:[{type:"bulbs",title:"Le lucine della cucina",desc:"Sopra la finestra c'è una ghirlanda di lucine. Mettile nell'ordine giusto.",colors:["rosso","verde","arancione","giallo","blu"],answer:["rosso","verde","arancione","giallo"],
+   prop:{type:"garland",side:"L",a0:4.3,a1:6.5,z:4.5,n:4},hint:"Guarda cosa c'è nella fruttiera.",done:"La cucina si illumina!"}]},
+ 8:{clues:{weddingphoto:"Dietro la foto del matrimonio: «20·06·2019»."},
+  list:[{type:"code",title:"Il lucchetto dell'armadio",desc:"L'armadio è chiuso da un lucchetto a 4 cifre.",n:4,answer:"2006",lock:"wardrobe",
+   hint:"Che giorno vi siete sposati? Guarda dietro le foto.",done:"Click! L'armadio si apre."}]},
+ 9:{clues:{diploma:"Laurea in Ingegneria, anno 2014."},
+  list:[{type:"code",title:"La password del computer",desc:"Il computer chiede un PIN di 4 cifre.",n:4,answer:"2014",item:"monitor",needPlace:"Prima metti il monitor sulla scrivania.",
+   hint:"Che anno c'è sul diploma?",done:"Accesso consentito!"}]},
+ 10:{clues:{books:"Sull'ultima pagina delle favole c'è la ninna nanna: Mi – Sol – Mi – Do."},
+  list:[{type:"melody",title:"Il carillon",desc:"Suona la ninna nanna giusta sul carillon.",keys:["Do","Re","Mi","Fa","Sol","La"],answer:["Mi","Sol","Mi","Do"],item:"musicbox",needPlace:"Prima sistema il carillon.",
+   hint:"Le favole finiscono sempre con una canzone.",done:"Il carillon suona e il bimbo si addormenta."}]}
+};
+function initPuzzles(i){
+  const D=PUZZLES[i]||{clues:{},list:[]};R.clues=D.clues||{};R.puzzleNag=0;
+  R.puzzles=(D.list||[]).map(p=>({...p,solved:false,ui:null}));
+  for(const pz of R.puzzles)if(pz.lock&&R.tags[pz.lock])R.tags[pz.lock].lock=pz;
+}
+function pzState(pz){
+  return pz.ui||(pz.ui=pz.type==="code"?{d:Array(pz.n).fill(0)}:pz.type==="bulbs"?{c:Array(pz.answer.length).fill(null)}:
+    pz.type==="clock"?{h:10,m:10}:pz.type==="dial"?{v:null}:pz.type==="tiles"?{t:Array(9).fill(0)}:{seq:[]});
+}
+function rightAns(pz){const s=pzState(pz);
+  switch(pz.type){case"code":return s.d.join("")===pz.answer;case"bulbs":return s.c.every((c,i)=>c===pz.answer[i]);
+    case"clock":return s.h%12===pz.answer[0]%12&&s.m===pz.answer[1];case"dial":return s.v===pz.answer;
+    case"tiles":return s.t.join("")===pz.answer.join("");case"melody":return s.seq.join()===pz.answer.join()}}
+function wrongAns(card,o){
+  card.classList.remove("shake");void card.offsetWidth;card.classList.add("shake");SFX.wrong();
+  if(RULE.errs){errors++;updateStatus();showToast(`Sbagliato! Errori: ${errors}/${RULE.errs}`);if(errors>=RULE.errs){o.remove();setTimeout(()=>lose("errs"),200)}}
+}
+function pzAnchor(pz){
+  let bb=null;if(pz.prop)bb=pz.bb;else if(pz.box)bb=R.tags[pz.box].bb;else if(pz.lock)bb=opBB(R.tags[pz.lock]);
+  else{const it=items.find(i=>i.key===pz.item);if(it&&it.rect)bb=[it.rect[0],it.rect[1],it.rect[0]+it.rect[2],it.rect[1]+it.rect[3]]}
+  return bb?{x:(bb[0]+bb[2])/2,y:(bb[1]+bb[3])/2}:{x:ox,y:oy};
+}
+function solvePuzzle(pz){
+  pz.solved=true;SFX.win();const a=pzAnchor(pz);sparkle(a.x,a.y,16);puff(a.x,a.y,6);showToast("🧩 "+pz.done);
+  if(pz.lock){const op=R.tags[pz.lock];op.target=1;SFX.door(true)}
+  if(pz.reward==="ring"){const src=items.find(i=>i.key===pz.item);const it={key:"ring",M:modelOf("ring"),n:"Anello",ok:["dresser","nightstand","drawer"],s:20,state:"loose",slot:null,plane:"top",bad:false,z:0};
+    const bx=src&&src.slot?src.slot.x:N/2,by=src&&src.slot?src.slot.y:N/2;const[sx,sy]=freeSpot(bx+.8,by+.9,it);it.x=sx;it.y=sy;
+    it.anim={t0:now,dur:600,fx:bx,fy:by,fz:src&&src.slot?src.slot.z+.3:1};it.popT=now+500;items.push(it)}
+  updateCount();dirty=true;check();
+}
+function openPuzzle(pz){
+  timerOn=true;SFX.ui();const st=pzState(pz);
+  const o=overlay(`<div class="big">🧩</div><h2>${pz.title}</h2><p>${pz.desc}</p><div class="pzb"></div>`,[["Chiudi","",()=>{dirty=true}]]);
+  const box=o.querySelector(".pzb"),card=o.querySelector(".card");
+  const el=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e};
+  const test=()=>{if(rightAns(pz)){o.remove();solvePuzzle(pz)}else wrongAns(card,o)};
+  const tryB=()=>{const w=el("div","row2"),b=el("button","primary","Prova");b.onclick=test;w.appendChild(b);const cb=card.querySelector(":scope > button");if(cb){cb.style.margin="0";w.appendChild(cb)}box.appendChild(w)};
+  if(pz.type==="code"){
+    st.d.forEach((v,i)=>{const c=el("div","dig"),up=el("button","sm","▲"),sp=el("span",null,String(v)),dn=el("button","sm","▼");
+      up.onclick=()=>{st.d[i]=(st.d[i]+1)%10;sp.textContent=st.d[i];SFX.tick()};dn.onclick=()=>{st.d[i]=(st.d[i]+9)%10;sp.textContent=st.d[i];SFX.tick()};
+      c.append(up,sp,dn);box.appendChild(c)});tryB();
+  }else if(pz.type==="bulbs"){
+    st.c.forEach((v,i)=>{const b=el("button","bulb");const paint=()=>{b.style.background=st.c[i]?PCOL[st.c[i]]:"#e5e5e5";b.textContent=st.c[i]?"":"?"};paint();
+      b.onclick=()=>{const L=pz.colors,k=st.c[i]?L.indexOf(st.c[i]):-1;st.c[i]=L[(k+1)%L.length];paint();SFX.tick();dirty=true};box.appendChild(b)});
+    box.appendChild(el("div","note w100","Tocca una lampadina per cambiarne il colore."));tryB();
+  }else if(pz.type==="clock"){
+    const cw=el("div","clockui w100");box.appendChild(cw);
+    const drawC=()=>{const ah=((st.h%12)+st.m/60)/12*Math.PI*2,am=st.m/60*Math.PI*2;let t="";
+      for(let i=0;i<12;i++){const a=i/12*Math.PI*2;t+=`<line x1="${60+Math.sin(a)*45}" y1="${60-Math.cos(a)*45}" x2="${60+Math.sin(a)*52}" y2="${60-Math.cos(a)*52}" stroke="#3b2a26" stroke-width="${i%3?2:4}"/>`}
+      cw.innerHTML=`<svg width="150" height="150" viewBox="0 0 120 120"><circle cx="60" cy="60" r="56" fill="#fffaf0" stroke="#3b2a26" stroke-width="5"/>${t}
+        <line x1="60" y1="60" x2="${60+Math.sin(ah)*28}" y2="${60-Math.cos(ah)*28}" stroke="#3b2a26" stroke-width="6" stroke-linecap="round"/>
+        <line x1="60" y1="60" x2="${60+Math.sin(am)*42}" y2="${60-Math.cos(am)*42}" stroke="#e63946" stroke-width="4" stroke-linecap="round"/><circle cx="60" cy="60" r="5" fill="#3b2a26"/></svg>
+        <div class="note">${st.h}:${String(st.m).padStart(2,"0")}</div>`};
+    drawC();const mk=(t,fn)=>{const b=el("button","sm",t);b.onclick=()=>{fn();drawC();SFX.tick();dirty=true};return b};
+    const r1=el("div","row2"),r2=el("div","row2");
+    r1.append(el("span","lbl2","Ore"),mk("−",()=>st.h=st.h===1?12:st.h-1),mk("+",()=>st.h=st.h%12+1));
+    r2.append(el("span","lbl2","Minuti"),mk("−",()=>st.m=(st.m+55)%60),mk("+",()=>st.m=(st.m+5)%60));box.append(r1,r2);tryB();
+  }else if(pz.type==="dial"){
+    pz.options.forEach(op=>{const b=el("button","opt",op);b.onclick=()=>{st.v=op;SFX.tick();test()};box.appendChild(b)});
+  }else if(pz.type==="tiles"){
+    const g=el("div","tiles");st.t.forEach((v,i)=>{const b=el("button","tile"+(v?" on":""));b.onclick=()=>{st.t[i]^=1;b.classList.toggle("on",!!st.t[i]);SFX.tick();dirty=true};g.appendChild(b)});
+    box.appendChild(g);tryB();
+  }else if(pz.type==="melody"){
+    const sq=el("div","seq w100","· · · ·");box.appendChild(sq);const kw=el("div","row2 keys");
+    pz.keys.forEach(k=>{const b=el("button","key",k);b.onclick=()=>{SFX.note(NOTES[k]);st.seq.push(k);sq.textContent=st.seq.join(" – ");
+      if(st.seq.length>=pz.answer.length){if(rightAns(pz))setTimeout(()=>{o.remove();solvePuzzle(pz)},450);else{wrongAns(card,o);st.seq=[];setTimeout(()=>sq.textContent="· · · ·",500)}}};kw.appendChild(b)});
+    box.appendChild(kw);
+  }
+}
+// lucine e piastrelle disegnate sulla parete
+function drawProps(){
+  for(const pz of R.puzzles||[]){const pr=pz.prop;if(!pr)continue;const st=pzState(pz);
+    if(pr.type==="garland"){
+      const sag=t=>pr.z-.3*Math.sin(Math.PI*t),pts=[];for(let i=0;i<=24;i++){const t=i/24;pts.push(wq(pr.side,pr.a0+(pr.a1-pr.a0)*t,sag(t)))}
+      ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.strokeStyle=INK;ctx.lineWidth=1.8;ctx.stroke();
+      let bb=[1e9,1e9,-1e9,-1e9];
+      for(let i=0;i<pr.n;i++){const t=(i+.5)/pr.n,p=wq(pr.side,pr.a0+(pr.a1-pr.a0)*t,sag(t)-.22);
+        const col=pz.solved?PCOL[pz.answer[i]]:(st.c[i]?PCOL[st.c[i]]:"#d9d9d9");
+        ctx.save();if(pz.solved){ctx.shadowColor=col;ctx.shadowBlur=18+4*Math.sin(now/200+i)}
+        ctx.fillStyle="#6c6c78";ctx.fillRect(p[0]-3.5,p[1]-12,7,6);
+        ctx.beginPath();ctx.ellipse(p[0],p[1],7,9,0,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();ctx.lineWidth=1.6;ctx.strokeStyle=INK;ctx.stroke();ctx.restore();
+        ctx.beginPath();ctx.ellipse(p[0]-2.5,p[1]-3,2,3,0,0,Math.PI*2);ctx.fillStyle="rgba(255,255,255,.7)";ctx.fill();
+        bb=[Math.min(bb[0],p[0]-14),Math.min(bb[1],p[1]-24),Math.max(bb[2],p[0]+14),Math.max(bb[3],p[1]+14)]}
+      for(const p of pts)bb=[Math.min(bb[0],p[0]),Math.min(bb[1],p[1]-8),Math.max(bb[2],p[0]),Math.max(bb[3],p[1])];
+      pz.bb=bb;
+    }else if(pr.type==="tiles"){
+      const s=pr.size/3,col=pz.solved?"#ffd60a":"#4cc9f0";
+      rpath(wquad(pr.side,pr.a0-.08,pr.a0+pr.size+.08,pr.z0-.08,pr.z0+pr.size+.08),4);ctx.fillStyle="#fffaf2";ctx.fill();ctx.strokeStyle=INK;ctx.lineWidth=2;ctx.stroke();
+      for(let r=0;r<3;r++)for(let c=0;c<3;c++){const on=pz.solved?pz.answer[r*3+c]:st.t[r*3+c];
+        poly(wquad(pr.side,pr.a0+c*s+.03,pr.a0+(c+1)*s-.03,pr.z0+(2-r)*s+.03,pr.z0+(3-r)*s-.03),on?col:"#e9e4dc","rgba(59,42,38,.6)",1.2)}
+      const q=wquad(pr.side,pr.a0,pr.a0+pr.size,pr.z0,pr.z0+pr.size);pz.bb=[Math.min(...q.map(p=>p[0])),Math.min(...q.map(p=>p[1])),Math.max(...q.map(p=>p[0])),Math.max(...q.map(p=>p[1]))];
+    }
+  }
+}
+function pickPuzzle(p){for(const pz of R.puzzles||[]){if(pz.prop&&inBB(p,pz.bb))return pz;if(pz.box&&R.tags[pz.box]&&inBB(p,R.tags[pz.box].bb))return pz}return null}
+function drawClockHands(sx,sy,plane,k,h,m,cz){
+  const map=(u,v)=>{const n=.08;let X,Y,Zz;if(plane==="L"){X=n;Y=-u;Zz=v+cz}else{X=u;Y=n;Zz=v+cz}return[sx+(X-Y)*U*k,sy+(X+Y)*U/2*k-Zz*ZU*k]};
+  const c=map(0,0),ah=((h%12)+m/60)/12*Math.PI*2,am=m/60*Math.PI*2,hp=map(Math.sin(ah)*.13,Math.cos(ah)*.13),mp=map(Math.sin(am)*.2,Math.cos(am)*.2);
+  ctx.lineCap="round";line(c,hp,INK,3.2*k);line(c,mp,"#e63946",2.2*k);ctx.beginPath();ctx.arc(c[0],c[1],2.2*k,0,7);ctx.fillStyle=INK;ctx.fill();
+}
+
+// ================= Personalizzazione della stanza =================
+const LOOK={
+  wall:["#fcdccb","#e3eaf3","#e6f2dc","#f1e3f2","#fdf1cb","#f4e8d8","#d7e3fc","#ffd6e0","#d8f3dc","#e9ecef"],
+  wp:[["plain","Liscia"],["stripe","Righe"],["dots","Pois"],["grid","Quadretti"],["tile","Piastrelle"]],
+  fp:[["wood","Parquet"],["tile","Piastrelle"],["checker","Scacchi"],["carpet","Moquette"]],
+  floor:["#dcab7b","#b0835a","#8d6346","#ece5d6","#cfd8dc","#e8c4c4","#c9d6a3"],
+  cur:["#f7b6b0","#a2d2ff","#b5e48c","#ffd166","#cdb4db","#ffffff",""]
+};
+function applyLook(i){
+  const base=ROOMS[i];room={...base,cur:"#f7b6b0"};
+  try{const s=JSON.parse(store("scatoloni-look-"+i)||"null");if(s){if(s.wall)room.wall=[s.wall,mixHex(s.wall,-.06)];if(s.wp)room.wp=s.wp;if(s.fp)room.fp=s.fp;if(s.floor)room.floor=s.floor;if(s.cur!=null)room.cur=s.cur}}catch(e){}
+}
+function saveLook(){store("scatoloni-look-"+ri,JSON.stringify({wall:room.wall[0],wp:room.wp,fp:room.fp,floor:room.floor,cur:room.cur}))}
+function lookMenu(after){
+  const sw=(k,list)=>`<div class="sws" data-k="${k}">${list.map(c=>`<button class="sw${c?"":" none"}" data-v="${c}" style="background:${c||"#fff"}">${c?"":"✕"}</button>`).join("")}</div>`;
+  const seg=(k,list)=>`<div class="seg" data-k="${k}">${list.map(([v,l])=>`<button data-v="${v}">${l}</button>`).join("")}</div>`;
+  const o=overlay(`<h2>🎨 Arreda la stanza</h2><div class="set">
+    <div class="row"><div class="lab">Colore delle pareti</div>${sw("wall",LOOK.wall)}</div>
+    <div class="row"><div class="lab">Tappezzeria</div>${seg("wp",LOOK.wp)}</div>
+    <div class="row"><div class="lab">Pavimento</div>${seg("fp",LOOK.fp)}${sw("floor",LOOK.floor)}</div>
+    <div class="row"><div class="lab">Tende</div>${sw("cur",LOOK.cur)}</div></div>`,[["Fatto","primary",()=>{saveLook();after&&after()}]]);
+  o.classList.add("side");
+  const refresh=()=>{o.querySelectorAll("[data-k]").forEach(g=>{const k=g.dataset.k,cur=k==="wall"?room.wall[0]:room[k];g.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.v===String(cur)))})};
+  o.querySelectorAll("[data-k] button").forEach(b=>b.onclick=()=>{const k=b.parentNode.dataset.k,v=b.dataset.v;
+    if(k==="wall")room.wall=[v,mixHex(v,-.06)];else room[k]=v;SFX.tick();refresh();dirty=true});
+  refresh();
 }
 function bboxOf(o){
   if(o.kind==="item"&&o.it.rect){const r=o.it.rect;return[r[0],r[1],r[0]+r[2],r[1]+r[3]]}
@@ -735,7 +1194,8 @@ const SFX={
   wrong(){if(!this.ok())return;const t=A.ctx.currentTime;tone(mtof(67),t,{type:"triangle",d:.25,v:.08,lp:1800});tone(mtof(63),t+.14,{type:"triangle",d:.35,v:.08,lp:1800})},
   win(){if(!this.ok())return;const t=A.ctx.currentTime;[65,69,72,77,81].forEach((m,i)=>{tone(mtof(m),t+i*.11,{d:1.4,v:.11});tone(mtof(m+12),t+i*.11,{d:.6,v:.03})})},
   lose(){if(!this.ok())return;const t=A.ctx.currentTime;[69,65,62].forEach((m,i)=>tone(mtof(m),t+i*.22,{type:"triangle",d:.7,v:.08,lp:1500}))},
-  tick(){if(this.ok())tone(1900,A.ctx.currentTime,{d:.03,v:.03})}
+  tick(){if(this.ok())tone(1900,A.ctx.currentTime,{d:.03,v:.03})},
+  note(f){if(this.ok()){const t=A.ctx.currentTime;tone(f*2,t,{d:1.2,v:.12});tone(f*4,t,{d:.5,v:.03})}}
 };
 // ---- musica generativa: pad morbidi + carillon con eco ----
 const CHORDS=[[53,57,60,64],[50,57,60,65],[46,53,57,62],[48,55,60,62]];
@@ -782,19 +1242,17 @@ function draw(){
   for(const it of items){
     if(it.state!=="loose"&&it.state!=="slot")continue;
     if(isHidden(it)){it.rect=null;continue}
-    const p=itemPos(it),hu=it.s/42;
-    if(it.plane==="L")list.push({kind:"item",it,p,x:0,y:p.y-.35,z:p.z-.45,w:.05,d:.7,h:.9});
-    else if(it.plane==="R")list.push({kind:"item",it,p,x:p.x-.35,y:0,z:p.z-.45,w:.7,d:.05,h:.9});
-    else list.push({kind:"item",it,p,x:p.x-.2,y:p.y-.2,z:p.z,w:.4,d:.4,h:hu});
+    const p=itemPos(it),[,ex,lift]=itemPrims(it,it.plane);
+    const K=ITEM_K;list.push({kind:"item",it,p,x:p.x+ex.x0*K,y:p.y+ex.y0*K,z:p.z+(ex.z0+lift)*K,w:Math.max(.02,(ex.x1-ex.x0)*K),d:Math.max(.02,(ex.y1-ex.y0)*K),h:Math.max(.02,(ex.z1-ex.z0)*K)});
   }
   const order=topo(list);
   for(const o of order){if(o.kind==="item")drawItem(o);else if(o.kind==="carton")drawCarton(o);else if(o.kind==="door"){drawDoor(o);o.bb=bboxOf(o)}else drawBox(o)}
   lastOrder=order;
   if(hint&&hint.op){const bb=opBB(hint.op);if(bb){const a=.5+.5*Math.sin(now/120);ctx.save();ctx.strokeStyle=`rgba(255,200,60,${a})`;ctx.lineWidth=4;ctx.setLineDash([8,6]);
     ctx.beginPath();ctx.roundRect?ctx.roundRect(bb[0]-6,bb[1]-6,bb[2]-bb[0]+12,bb[3]-bb[1]+12,10):ctx.rect(bb[0]-6,bb[1]-6,bb[2]-bb[0]+12,bb[3]-bb[1]+12);ctx.stroke();ctx.restore()}}
-  if(drag){
+  if(drag&&!drag.pending){
     const t=drag.target;
-    if(t){const q=P(t.x+(t.plane==="L"?.03:0),t.y+(t.plane==="R"?.03:0),t.z);drawItemAt(drag.it,q[0],q[1],t.plane,1,null,.45)}
+    if(t){const q=P(t.x+(t.plane==="L"?.01:0),t.y+(t.plane==="R"?.01:0),t.z);drawItemAt(drag.it,q[0],q[1],t.plane,1,null,.45)}
     ctx.save();ctx.shadowColor="rgba(60,30,60,.35)";ctx.shadowBlur=12;ctx.shadowOffsetY=10;
     drawItemAt(drag.it,drag.bx,drag.by,"top",1.15,null);ctx.restore()}
   drawFX();
@@ -833,9 +1291,9 @@ function Z(){return baseZ*cam.z}
 function ps(e){const r=cv.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
 function toWorld(s){const z=Z();return{x:(s.x-VW/2)/z+cam.x,y:(s.y-VH/2)/z+cam.y}}
 function computeBase(){
-  const x0=ox-(N+.35)*U,x1=ox+(N+.35)*U,y0=P(-.3,-.3,WH)[1]-12,y1=P(N,N,-.5)[1]+10;
+  const x0=ox-(N+.4)*U,x1=ox+(N+.4)*U,y0=P(-.3,-.3,WH)[1]-30,y1=P(N,N,-.5)[1]+20;
   bounds=[x0,y0,x1,y1];home={x:(x0+x1)/2,y:(y0+y1)/2-12};
-  const topPad=Math.min(48,VH*.08);baseZ=Math.min(VW/(x1-x0),(VH-topPad)/(y1-y0));home.y-=topPad/2/baseZ;
+  const topPad=52;baseZ=Math.min(VW/(x1-x0),(VH-topPad)/(y1-y0));home.y-=topPad/2/baseZ;
 }
 function clampCam(){
   cam.z=clamp(cam.z,1,4);if(cam.z<=1.001){cam.z=1;cam.x=home.x;cam.y=home.y;return}
@@ -859,12 +1317,13 @@ function pickOpen(p){
     else if(inBB(p,opBB(op)))return op;
   }return null}
 function toggleOpen(op){
+  if(op.lock&&!op.lock.solved){openPuzzle(op.lock);return}
   op.target=op.target?0:1;dirty=true;
   if(op.type==="door")SFX.door(!!op.target);else if(op.type==="drawer")SFX.drawer(!!op.target);else SFX.cloth();
 }
 function slotCenter(s){const p=P(s.x,s.y,s.z);return s.plane==="top"?[p[0],p[1]-s.cap/2]:p}
 function findTarget(it,bx,by){
-  let best=null,bd=48;const cx=bx,cy=by-it.s*.55;
+  let best=null,bd=52;const cx=bx,cy=by-it.s*.45;
   for(const s of R.slots){if((s.item&&s.item!==it)||!slotOn(s)||!fits(it,s))continue;const c=slotCenter(s);const d=Math.hypot(c[0]-cx,c[1]-cy);if(d<bd){bd=d;best=s}}
   return best;
 }
@@ -878,10 +1337,10 @@ cv.addEventListener("pointerdown",e=>{
   if(!finished){
     const it=pickItem(p);
     if(it){timerOn=true;cv.setPointerCapture(e.pointerId);
-      const r=it.rect,bx=r[0]+r[2]/2,by=it.plane==="top"?r[1]+r[3]-it.s*.04:r[1]+r[3]*.5+it.s*.5;
-      drag={it,dx:bx-p.x,dy:by-p.y,bx,by,prev:{state:it.state,slot:it.slot,x:it.x,y:it.y,z:it.z,plane:it.plane},target:null};
-      if(it.slot){it.slot.item=null;it.slot=null}it.state="drag";it.anim=null;it.bad=false;SFX.pick();dirty=true;return}
+      const r=it.rect,bx=it.plane==="top"&&it.sb?it.sb[0]:r[0]+r[2]/2,by=it.plane==="top"&&it.sb?it.sb[1]:r[1]+r[3]*.5+it.s*.5;
+      drag={it,pending:true,sx0:s.x,sy0:s.y,dx:bx-p.x,dy:by-p.y,bx,by,prev:{state:it.state,slot:it.slot,x:it.x,y:it.y,z:it.z,plane:it.plane},target:null};return}
     const c=pickCarton(p);if(c){timerOn=true;if(hint&&hint.carton===c)hint=null;openCarton(c);return}
+    const pz=pickPuzzle(p);if(pz){timerOn=true;if(pz.solved)showToast("🧩 "+pz.done);else openPuzzle(pz);return}
     const op=pickOpen(p);if(op){if(hint&&hint.op===op)hint=null;toggleOpen(op);return}
   }
   if(now-lastTap.t<320&&Math.hypot(s.x-lastTap.x,s.y-lastTap.y)<30){zoomAt(s,cam.z>1.3?1:2.2);lastTap.t=0;return}
@@ -893,6 +1352,8 @@ cv.addEventListener("pointermove",e=>{
   if(pinch&&ptrs.size>=2){const[a,b]=[...ptrs.values()];const d=Math.hypot(a.x-b.x,a.y-b.y),mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
     cam.z=clamp(pinch.z*d/pinch.d,1,4);const z=Z();cam.x=pinch.w.x-(mid.x-VW/2)/z;cam.y=pinch.w.y-(mid.y-VH/2)/z;clampCam();dirty=true;return}
   const p=toWorld(s);
+  if(drag&&drag.pending){if(Math.hypot(s.x-drag.sx0,s.y-drag.sy0)<8)return;const it=drag.it;drag.pending=false;
+    if(it.slot){it.slot.item=null;it.slot=null}it.state="drag";it.anim=null;it.bad=false;SFX.pick();}
   if(drag){drag.bx=p.x+drag.dx;drag.by=p.y+drag.dy;const t=findTarget(drag.it,drag.bx,drag.by);if(t!==drag.target&&t)SFX.ui();drag.target=t;dirty=true;return}
   if(pan){const z=Z();cam.x=pan.cx-(s.x-pan.sx)/z;cam.y=pan.cy-(s.y-pan.sy)/z;clampCam();dirty=true;return}
   if(e.pointerType==="mouse"&&R){const h=pickItem(p);const c=h?null:(pickCarton(p)||pickOpen(p));if(h!==hover){hover=h;dirty=true}cv.style.cursor=h?"grab":c?"pointer":(cam.z>1?"move":"default")}
@@ -900,6 +1361,7 @@ cv.addEventListener("pointermove",e=>{
 function ptrUp(e){
   ptrs.delete(e.pointerId);
   if(pinch){if(ptrs.size<2)pinch=null;pan=null;return}
+  if(drag&&drag.pending){const it=drag.it;drag=null;tapItem(it);dirty=true;return}
   if(drag)endDrag();pan=null;
 }
 cv.addEventListener("pointerup",ptrUp);cv.addEventListener("pointercancel",ptrUp);
@@ -987,8 +1449,17 @@ function settingsMenu(after){
   const vr=o.querySelector("#volR");vr.value=SET.vol;vr.oninput=()=>{SET.vol=+vr.value;saveSet();if(A.ctx&&mus.on)A.mus.gain.setTargetAtTime(SET.vol,A.ctx.currentTime,.1)};
   refresh();
 }
+function tapItem(it){
+  const pz=(R.puzzles||[]).find(p=>p.item===it.key&&!p.solved);
+  if(pz){if(it.state==="slot")openPuzzle(pz);else showToast(pz.needPlace);return}
+  const cl=R.clues&&R.clues[it.key];
+  if(cl){SFX.ui();overlay(`<div class="big">🔍</div><h2>${it.n}</h2><p>${cl}</p>`,[["Ok","primary",()=>{}]]);return}
+  SFX.tick();showToast(it.n);
+}
 function doHint(){
   if(finished)return;
+  const pzl=(R.puzzles||[]).find(p=>!p.solved);
+  if(pzl&&items.every(i=>i.state==="slot"&&allowed(i,i.slot))){showToast("🧩 "+pzl.hint);return}
   const it=items.find(i=>i.bad)||items.find(i=>i.state==="loose")||items.find(i=>i.state==="slot"&&!allowed(i,i.slot));
   if(!it){const c=cartons.find(c=>c.queue.length&&!c.vanish);if(c){hint={carton:c,t0:now};showToast("Apri uno scatolone")}else showToast("Sembra tutto a posto!");dirty=true;return}
   const free=R.slots.filter(s=>!s.item&&allowed(it,s));
@@ -1000,6 +1471,7 @@ function doHint(){
 }
 document.getElementById("hintB").onclick=doHint;
 document.getElementById("roomsB").onclick=roomsMenu;
+document.getElementById("lookB").onclick=()=>lookMenu();
 document.getElementById("setB").onclick=()=>settingsMenu();
 document.getElementById("restartB").onclick=()=>loadRoom(ri,false);
 document.getElementById("musicB").onclick=()=>{SET.music=!SET.music;saveSet();initAudio();SET.music?musicOn():musicOff();updMusicBtn()};
