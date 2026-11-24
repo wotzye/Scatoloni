@@ -933,7 +933,7 @@ function primZ(p){return p.t==="s"?p.z-p.r:p.z}
 function drawModel(prims,sx,sy,k,glow,alpha){
   const Q=(x,y,z)=>[sx+(x-y)*U*k,sy+(x+y)*U/2*k-z*ZU*k];
   const list=prims.keep?prims:prims.slice().sort((a,b)=>(primKey(a)-primKey(b))||(primZ(a)-primZ(b)));
-  ctx.save();if(alpha!=null)ctx.globalAlpha=alpha;
+  ctx.save();if(alpha!=null)ctx.globalAlpha*=alpha;
   if(glow){ctx.shadowColor=glow;ctx.shadowBlur=14}
   for(const p of list){
     if(p.t==="b")drawSolid(p,null,Q,k,!p.hard);
@@ -1369,6 +1369,9 @@ function draw(){
   const order=topo(list);
   for(const o of order){if(o.kind==="item")drawItem(o);else if(o.kind==="carton")drawCarton(o);else if(o.kind==="door"){drawDoor(o);o.bb=bboxOf(o)}else drawBox(o)}
   lastOrder=order;
+  // oggetti coperti dai mobili: si vedono in trasparenza (e si possono prendere toccandoli)
+  for(const o of order){if(o.kind!=="item")continue;const it=o.it,s=it.slot;if(s&&s.owner&&s.owner.type==="door"&&s.owner.p<.5)continue;
+    const p=o.p,sp=P(p.x+(it.plane==="L"?.01:0),p.y+(it.plane==="R"?.01:0),p.z);ctx.save();ctx.globalAlpha=.32;drawItemAt(it,sp[0],sp[1],it.plane,1,null,1);ctx.restore()}
   if(hint&&hint.op){const bb=opBB(hint.op);if(bb){const a=.5+.5*Math.sin(now/120);ctx.save();ctx.strokeStyle=`rgba(255,200,60,${a})`;ctx.lineWidth=4;ctx.setLineDash([8,6]);
     ctx.beginPath();ctx.roundRect?ctx.roundRect(bb[0]-6,bb[1]-6,bb[2]-bb[0]+12,bb[3]-bb[1]+12,10):ctx.rect(bb[0]-6,bb[1]-6,bb[2]-bb[0]+12,bb[3]-bb[1]+12);ctx.stroke();ctx.restore()}}
   if(drag&&!drag.pending){
