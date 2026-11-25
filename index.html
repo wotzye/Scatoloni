@@ -97,6 +97,8 @@ body[data-world=horror] .pill{background:rgba(20,14,30,.85)}body[data-world=spaz
  .clockui svg{width:110px;height:110px}button.primary{padding:8px 22px;font-size:15px}.set{gap:8px}}
 
 /* --- stile anime --- */
+#hud #nextB{display:none;width:auto;padding:0 14px;border-radius:999px;background:linear-gradient(180deg,#ff8fab,#ff5d8f);color:#fff;font-size:15px;font-weight:900;text-shadow:0 1px 0 rgba(120,20,60,.35);animation:nb 1.6s ease-in-out infinite}
+@keyframes nb{50%{transform:scale(1.06)}}
 body{font-family:"M PLUS Rounded 1c","Nunito","Varela Round",ui-rounded,"SF Pro Rounded",system-ui,sans-serif}
 .pill{background:linear-gradient(180deg,rgba(255,255,255,.95),rgba(255,236,246,.92));color:var(--ink);border:2.5px solid var(--ink);box-shadow:0 3px 0 var(--ink),inset 0 -3px 0 rgba(255,111,145,.18)}
 body[data-world=horror] .pill{background:linear-gradient(180deg,#3a2a4f,#271c38);color:#f3e8ff;border-color:#120a1c;box-shadow:0 3px 0 #120a1c}
@@ -125,6 +127,7 @@ button.primary{background:linear-gradient(180deg,#ff8fab,#ff5d8f);color:#fff;tex
     <button id="lookB" title="Arreda la stanza">🎨</button>
     <button id="musicB" title="Musica">🎵</button>
     <button id="setB" title="Impostazioni">⚙️</button>
+    <button id="nextB" title="Prossima stanza">Avanti ▶</button>
     <button id="restartB" title="Ricomincia la stanza">↺</button>
     <button id="fsB" title="Schermo intero">⛶</button>
   </div>
@@ -491,7 +494,7 @@ function allowed(it,s){if(R&&R.creative)return!!s&&(!s.cont||fits(it,s));return!
 const MCACHE={};function modelOf(k){return MCACHE[k]||(MCACHE[k]=makeModel(k))}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function loadRoom(i,intro=true){
-  ri=i;applyLook(i);N=room.N;finished=false;drag=null;hover=null;hint=null;FX.length=0;
+  ri=i;showNext(false);applyLook(i);N=room.N;finished=false;drag=null;hover=null;hint=null;FX.length=0;
   oy=300;computeBase();cam={x:home.x,y:home.y,z:1};
   RULE=MODE==="creative"?{time:0,errs:0}:{time:SET.time,errs:SET.errs};errors=0;timeLeft=RULE.time*60;timerOn=false;placeStep=0;
   if(MODE!=="creative")store("scatoloni3-cur",String(i));
@@ -2892,16 +2895,19 @@ function lose(kind){
 }
 function win(){
   SFX.win();const h=harmony(),best=+(store("scatoloni-stars-"+ri)||0);if(h.stars>best)store("scatoloni-stars-"+ri,String(h.stars));
-  if(R.improve&&h.stars<=R.improve){finished=false;showToast(`⭐ ${starStr(h.stars)}  ·  ${h.n}/${h.tot} tocchi di armonia`);return}
+  if(R.improve&&h.stars<=R.improve){finished=false;showNext(true);showToast(`⭐ ${starStr(h.stars)} · ${h.n}/${h.tot} tocchi di armonia · premi Avanti ▶ quando vuoi`);return}
   R.improve=0;
   const extra=(RULE.time?`Tempo rimasto: ${fmtTime(timeLeft)}`:"")+(RULE.time&&RULE.errs?" · ":"")+(RULE.errs?`Errori: ${errors}/${RULE.errs}`:"");
   const list=h.tot?`<div class="harm">${h.list.map(r=>`<div class="${r.ok?"ok":""}">${r.ok?"✔":"○"} ${r.t}</div>`).join("")}</div>`:"";
   const stars=R.creative?"":`<div class="stars">${starStr(h.stars)}</div>`;
   const last=ri>=ROOMS.length-1;
   const nx=nextInWorld(ri),btn=R.creative?[["Scegli un'altra stanza","primary",()=>roomsMenu()]]:[[nx<0?"Fine":"Prossima stanza","primary",()=>nx<0?(R.world==="casa"?theEnd():worldEnd(R.world)):loadRoom(nx)]];
-  if(h.stars<3&&!R.creative)btn.push(["Migliora le stelle","",()=>{finished=false;R.improve=h.stars;dirty=true;showToast("Sposta gli oggetti per dare più armonia. Poi 🏠 per proseguire")}]);
+  if(h.stars<3&&!R.creative)btn.push(["Migliora le stelle","",()=>{finished=false;R.improve=h.stars;showNext(true);dirty=true;showToast("Sposta gli oggetti per dare più armonia. Quando vuoi, premi Avanti ▶")}]);
   overlay(`<div class="big">✨</div><h2>${room.name}: tutto a posto!</h2>${stars}${R.creative?"<p>Arredata come piace a te.</p>":list}${extra?`<p class="how">${extra}</p>`:""}`,btn);
 }
+function goNext(){const nx=nextInWorld(ri);if(nx<0){if(R.world==="casa")theEnd();else worldEnd(R.world)}else loadRoom(nx)}
+function showNext(v){const b=document.getElementById("nextB");if(b)b.style.display=v?"flex":"none"}
+document.getElementById("nextB").onclick=()=>{SFX.ui();goNext()};
 function theEnd(){overlay(`<div class="big">🧸</div><h2>Fine</h2><p>${ENDING}</p>`,[["Scegli un altro mondo","primary",worldMenu],["Rigioca la casa","",()=>loadRoom(0)]])}
 function roomsMenu(W){
   W=W||(room&&room.w)||"casa";
@@ -2952,7 +2958,7 @@ function doHint(){
   const pzl=(R.puzzles||[]).find(p=>!p.solved);
   if(pzl&&items.every(i=>i.state==="slot"&&allowed(i,i.slot))){showToast("🧩 "+pzl.hint);return}
   const it=items.find(i=>i.bad)||items.find(i=>i.state==="loose")||items.find(i=>i.state==="slot"&&!allowed(i,i.slot));
-  if(!it){const c=cartons.find(c=>c.queue.length&&!c.vanish);if(c){hint={carton:c,t0:now};showToast("Apri uno scatolone")}else showToast("Sembra tutto a posto!");dirty=true;return}
+  if(!it){const c=cartons.find(c=>c.queue.length&&!c.vanish);if(c){hint={carton:c,t0:now};showToast("Apri uno scatolone")}else if(R.improve){const miss=harmony().list.find(r=>!r.ok);showToast(miss?`Per un'altra stella: «${miss.t}» · oppure Avanti ▶`:"Tutto perfetto! Premi Avanti ▶")}else showToast("Sembra tutto a posto!");dirty=true;return}
   const free=R.slots.filter(s=>!s.item&&allowed(it,s));
   const open=free.find(s=>slotOn(s))||sensiblePlace(it);
   if(open){hint={it,slot:open,t0:now};showToast(`${it.n}: ecco un posto adatto`)}
