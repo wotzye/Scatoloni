@@ -624,6 +624,13 @@ function drawShell(){
   if(room.wp==="dots"){for(const s of["L","R"])for(let a=.5;a<N;a+=.75)for(let z=.7;z<WH-.2;z+=.75){const q=wq(s,a+((z*4|0)%2)*.37,z);ctx.fillStyle="rgba(255,255,255,.6)";if((a*4+z*3|0)%2){heartPath(q[0],q[1]-4,8);ctx.fill()}else{ctx.beginPath();ctx.ellipse(q[0],q[1],3.2,3.6,0,0,7);ctx.fill()}}}
   if(room.wp==="grid"){for(const s of["L","R"]){for(let z=.5;z<WH;z+=.5)line(wq(s,0,z),wq(s,N,z),"rgba(255,255,255,.4)",1.2);for(let a=.5;a<N;a+=.5)line(wq(s,a,0),wq(s,a,WH),"rgba(255,255,255,.4)",1.2)}}
   if(room.wp==="stripe"){for(let a=0;a<N;a+=1){poly(wquad("L",a,a+.5,0,WH),"rgba(255,255,255,.16)");poly(wquad("R",a,a+.5,0,WH),"rgba(255,255,255,.16)")}}
+  if(room.wp==="damask"){for(const s of["L","R"])for(let a=0;a<N;a+=.8)for(let z=0;z<WH;z+=.9){const c=wq(s,a+.4,z+.45);poly([wq(s,a+.4,z+.05),wq(s,a+.72,z+.45),wq(s,a+.4,z+.85),wq(s,a+.08,z+.45)],null,"rgba(255,235,200,.22)",1.2);ctx.fillStyle="rgba(255,235,200,.25)";ctx.beginPath();ctx.arc(c[0],c[1],2.6,0,7);ctx.fill()}}
+  if(room.wp==="fleur"){for(const s of["L","R"])for(let a=.45,i=0;a<N;a+=.9,i++)for(let z=.6;z<WH-.3;z+=.9){const c=wq(s,a+((z*2|0)%2)*.45,z);ctx.fillStyle="rgba(233,183,48,.55)";
+    ctx.beginPath();ctx.ellipse(c[0],c[1]-4,2.2,5,0,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(c[0]-4,c[1]-1,2,3.6,-.7,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(c[0]+4,c[1]-1,2,3.6,.7,0,7);ctx.fill();ctx.fillRect(c[0]-4,c[1]+1,8,1.6)}}
+  if(room.wp==="cross"){for(const s of["L","R"])for(let a=.5;a<N;a+=.8)for(let z=.7;z<WH-.2;z+=.8){const c=wq(s,a+((z*2|0)%2)*.4,z);ctx.fillStyle=((a+z)*2|0)%2?"rgba(230,57,70,.35)":"rgba(42,157,143,.35)";ctx.fillRect(c[0]-1.5,c[1]-5,3,10);ctx.fillRect(c[0]-5,c[1]-1.5,10,3)}}
+  if(room.wp==="hex"){for(const s of["L","R"])for(let a=0,i=0;a<N+.5;a+=.75,i++)for(let z=(i%2)*.4;z<WH;z+=.8){const pts=[];for(let k=0;k<6;k++){const t=k/6*Math.PI*2;pts.push(wq(s,a+Math.cos(t)*.42,z+Math.sin(t)*.36))}poly(pts,null,"rgba(255,255,255,.4)",1.2)}}
+  if(room.wp==="candy"){for(const s of["L","R"])for(let a=-WH;a<N;a+=.7)poly([wq(s,Math.max(0,a),Math.max(0,-a)),wq(s,Math.max(0,a+.3),Math.max(0,-a-.3)),wq(s,Math.min(N,a+.3+WH),Math.min(WH,N-a-.3)),wq(s,Math.min(N,a+WH),Math.min(WH,N-a))].map((p,i)=>p),"rgba(255,111,145,.22)")}
+  if(room.wp==="hearts"){for(const s of["L","R"])for(let a=.5;a<N;a+=.8)for(let z=.6;z<WH-.2;z+=.8){const q=wq(s,a+((z*2|0)%2)*.4,z);ctx.fillStyle=((a+z)*2|0)%2?"rgba(255,111,145,.42)":"rgba(255,255,255,.7)";heartPath(q[0],q[1]-5,11);ctx.fill()}}
   if(room.wp==="tile"){const top=2.6;
     for(const s of["L","R"]){for(let z=.5;z<=top;z+=.5)line(wq(s,0,z),wq(s,N,z),"rgba(255,255,255,.6)");for(let a=.5;a<N;a+=.5)line(wq(s,a,0),wq(s,a,top),"rgba(255,255,255,.6)");
       poly(wquad(s,0,N,top,top+.12),shade(s==="L"?wl:wr,-.12))}}
@@ -652,8 +659,10 @@ function drawShell(){
 }
 function drawWallDecals(){
   if(R.world==="spazio")drawShipWalls();
+  if(R.world==="castello")drawCastleWalls();
   for(const w of R.wall){
     if(w.t==="window"&&R.world==="spazio"){drawPortholes(w);continue}
+    if(w.t==="window"&&R.world==="castello"){drawArchWindow(w);continue}
     if(w.t==="window"){const{side:s,a0,a1,z0,z1}=w;
       rpath(wquad(s,a0,a1,z0,z1),4);ctx.fillStyle="#fffaf2";ctx.fill();ctx.strokeStyle=INK;ctx.lineWidth=2;ctx.stroke();
       const WG=(WORLDS[R.world]||{}).glass||["#8fd0f0","#e9f7fd"],g=ctx.createLinearGradient(0,wq(s,a0,z1)[1],0,wq(s,a0,z0)[1]);g.addColorStop(0,WG[0]);g.addColorStop(1,WG[1]);
@@ -672,7 +681,9 @@ function drawWallDecals(){
   drawProps();
 }
 function drawFloorDecals(){
-  if(R.world==="spazio")drawShipFloor();
+  if(room.fp==="grate")drawShipFloor();
+  if(room.fp==="stone")drawFlagstones();
+  if(room.fp==="lino")for(let k=0;k<90;k++){const p=P(((k*37)%97)/97*N,((k*61)%89)/89*N,0);ctx.fillStyle=k%2?"rgba(255,255,255,.35)":"rgba(80,90,110,.12)";ctx.fillRect(p[0],p[1],3,2)}
   drawContactShadows();
   for(const g of R.floor){
     if(g.round){const pts=[];for(let k=0;k<48;k++){const a=k/48*Math.PI*2;pts.push(P(g.x+g.w/2+Math.cos(a)*g.w/2,g.y+g.d/2+Math.sin(a)*g.d/2,0))}
@@ -823,6 +834,7 @@ function spotOK(it,sf,x,y,F){
 function wallExt(it,side){const e=itemPrims(it,side)[1],K=ITEM_K;return side==="L"?{a0:e.y0*K,a1:e.y1*K,z0:e.z0*K,z1:e.z1*K}:{a0:e.x0*K,a1:e.x1*K,z0:e.z0*K,z1:e.z1*K}}
 function wallRects(side,ignore){
   const L=[];for(const w of R.wall)if(w.side===side){if(w.t==="window")L.push([w.a0-.3,w.a1+.3,w.z0-.35,w.z1+.4]);else L.push([w.a0-.05,w.a1+.05,w.z0-.05,w.z1+.05])}
+  if(R.world==="castello"){const C=castleLayout();for(const d of C.drapes)if(d.s===side)L.push([d.a0-.2,d.a1+.2,1.7,4.4]);for(const t of C.torches)if(t.s===side)L.push([t.a-.25,t.a+.25,2.3,3.7])}
   if(R.world==="spazio"){const S=shipLayout();for(const d of S.doors)if(d.s===side)L.push([d.a0-.15,d.a1+.55,0,d.z1+.25]);for(const q of S.screens)if(q.s===side)L.push([q.a0-.1,q.a1+.1,q.z0-.15,q.z1+.12])}
   for(const pz of R.puzzles||[]){const p=pz.prop;if(!p||p.side!==side)continue;if(p.type==="garland")L.push([p.a0-.2,p.a1+.2,p.z-.75,p.z+.3]);else L.push([p.a0-.1,p.a0+p.size+.1,p.z0-.1,p.z0+p.size+.1])}
   for(const b of R.boxes){if(b.win)continue;if(side==="L"?b.x<.6:b.y<.6)L.push(side==="L"?[b.y,b.y+b.d,b.z,b.z+b.h]:[b.x,b.x+b.w,b.z,b.z+b.h])}
@@ -992,7 +1004,7 @@ function pieceOK(pc){
 }
 // sposta scatoloni e oggetti sciolti che ora sono sotto un mobile
 function tidyAfterArrange(){
-  R.ship=null;
+  R.ship=null;R.castle=null;
   for(const c of cartons){if(c.vanish)continue;const hit=()=>R.boxes.some(b=>!b.win&&b.z<1.5&&c.x<b.x+b.w+.1&&b.x<c.x+c.w+.1&&c.y<b.y+b.d+.1&&b.y<c.y+c.d+.1)||cartons.some(o=>o!==c&&!o.vanish&&c.x<o.x+o.w+.1&&o.x<c.x+c.w+.1&&c.y<o.y+o.d+.1&&o.y<c.y+c.d+.1);
     if(!hit())continue;const ox0=c.x,oy0=c.y;let done=false;
     for(let rad=.25;rad<6&&!done;rad+=.25)for(let k=0;k<16&&!done;k++){const a=k/16*6.283;c.x=clamp(ox0+Math.cos(a)*rad,.2,N-1.3);c.y=clamp(oy0+Math.sin(a)*rad,.2,N-1.3);if(!hit())done=true}
@@ -1456,21 +1468,35 @@ const LOOK={
   floor:["#dcab7b","#b0835a","#8d6346","#ece5d6","#cfd8dc","#e8c4c4","#c9d6a3"],
   cur:["#f7b6b0","#a2d2ff","#b5e48c","#ffd166","#cdb4db","#ffffff",""]
 };
+const LOOKW={
+ ospedale:{wall:["#e6f4f1","#eef6fb","#fdf6ec","#e3f2fd","#f1faee","#ffe5ec","#d8f3dc","#ffffff"],wp:[["plain","Liscia"],["tile","Piastrelle"],["cross","Crocette"],["stripe","Righe"]],
+   fp:[["tile","Piastrelle"],["checker","Scacchi"],["lino","Linoleum"]],floor:["#e3edf2","#dfe7e5","#e9ecef","#d7e3e0","#cfe3d6","#f2e8dc"],cur:["#a2d2ff","#b7e4c7","#ffffff","#ffd6a5","#ffc8dd",""],curL:"Tende"},
+ horror:{wall:["#6b5a7a","#5e5672","#6e6a58","#7d6479","#5a4e62","#5c6b62","#6a2a35"],wp:[["damask","Damascato"],["stripe","Righe"],["stone","Pietra"],["plain","Liscia"]],
+   fp:[["wood","Parquet"],["checker","Scacchi"],["stone","Lastre"]],floor:["#5a463e","#5e4840","#57524b","#66503f","#4e5a53","#3f3a4f"],cur:["#6a1b2a","#3c1642","#22223b","#2d3a1f","#9d0208",""],curL:"Tendaggi"},
+ spazio:{wall:["#c9d1e0","#d7dce8","#e6f2f5","#b8c0cc","#3a3f7a","#d8f3dc"],wp:[["panels","Pannelli"],["hex","Esagoni"],["grid","Griglia"],["plain","Liscia"]],
+   fp:[["grate","Piastre"],["tile","Piastrelle"]],floor:["#8d99ae","#9aa5b8","#a3adbf","#7d8597","#5c5f86"],cur:[],curL:""},
+ castello:{wall:["#cfc6b8","#bfb5a8","#d8cbb8","#e8cfd6","#b8c4cf","#6b5f8a"],wp:[["stone","Pietra"],["fleur","Gigli"],["damask","Damascato"],["stripe","Righe"]],
+   fp:[["stone","Lastre"],["wood","Legno"],["carpet","Tappeto"]],floor:["#b5aa9a","#a39887","#c9b8a2","#8d7b68","#9c6644"],cur:["#9d0208","#1d3557","#2d6a4f","#5a189a","#e9b730","#ff8fab"],curL:"Tendaggi di velluto"},
+ pasticceria:{wall:["#fff1f5","#fde2e4","#e2f0cb","#dbe7ff","#fff3c4","#ffe5d9","#f3e8ff"],wp:[["stripe","Righe"],["candy","Caramella"],["hearts","Cuori"],["dots","Pois"]],
+   fp:[["checker","Scacchi"],["wood","Parquet"],["tile","Piastrelle"]],floor:["#f7d6e0","#e9dccf","#e6c9a8","#ffe8cc","#d8f3dc","#cdbfa8"],cur:["#ff8fab","#a2d2ff","#b5e48c","#ffd166","#cdb4db","#ffffff",""],curL:"Tende"}
+};
+function lookKey(i){const w=(ROOMS[i]&&ROOMS[i].w)||"casa";return"scatoloni-look-"+i+(w==="castello"||w==="spazio"?"-v2":"")}
 function applyLook(i){
   const base=ROOMS[i];room={...base,cur:"cur" in base?base.cur:"#f7b6b0"};
-  try{const s=JSON.parse(store("scatoloni-look-"+i)||"null");if(s){if(s.wall)room.wall=[s.wall,mixHex(s.wall,-.06)];if(s.wp)room.wp=s.wp;if(s.fp)room.fp=s.fp;if(s.floor)room.floor=s.floor;if(s.cur!=null)room.cur=s.cur}}catch(e){}
+  try{const s=JSON.parse(store(lookKey(i))||"null");if(s){if(s.wall)room.wall=[s.wall,mixHex(s.wall,-.06)];if(s.wp)room.wp=s.wp;if(s.fp)room.fp=s.fp;if(s.floor)room.floor=s.floor;if(s.cur!=null)room.cur=s.cur}}catch(e){}
 }
-function saveLook(){store("scatoloni-look-"+ri,JSON.stringify({wall:room.wall[0],wp:room.wp,fp:room.fp,floor:room.floor,cur:room.cur}))}
+function saveLook(){store(lookKey(ri),JSON.stringify({wall:room.wall[0],wp:room.wp,fp:room.fp,floor:room.floor,cur:room.cur}))}
 function lookMenu(after){
   const sw=(k,list)=>`<div class="sws" data-k="${k}">${list.map(c=>`<button class="sw${c?"":" none"}" data-v="${c}" style="background:${c||"#fff"}">${c?"":"✕"}</button>`).join("")}</div>`;
   const seg=(k,list)=>`<div class="seg" data-k="${k}">${list.map(([v,l])=>`<button data-v="${v}">${l}</button>`).join("")}</div>`;
+  const LK=LOOKW[(ROOMS[ri]&&ROOMS[ri].w)||"casa"]||Object.assign({curL:"Tende"},LOOK);
   const o=overlay(`<h2>🎨 Arreda la stanza</h2><div class="set">
     <div class="row"><div class="lab">🛋 Mobili</div><div class="note" id="arrSel"></div>
       <div class="seg"><button id="arrRot">↻ Ruota</button><button id="arrTint">🎨 Stile</button><button id="arrReset">↺ Com'era</button><button id="arrDel">🗑 Togli</button><button id="arrPlus">➕ Aggiungi</button></div><div class="seg" id="arrAdd"></div></div>
-    <div class="row"><div class="lab">Colore delle pareti</div>${sw("wall",LOOK.wall)}</div>
-    <div class="row"><div class="lab">Tappezzeria</div>${seg("wp",LOOK.wp)}</div>
-    <div class="row"><div class="lab">Pavimento</div>${seg("fp",LOOK.fp)}${sw("floor",LOOK.floor)}</div>
-    <div class="row"><div class="lab">Tende</div>${sw("cur",LOOK.cur)}</div>
+    <div class="row"><div class="lab">Colore delle pareti</div>${sw("wall",LK.wall)}</div>
+    <div class="row"><div class="lab">Pareti</div>${seg("wp",LK.wp)}</div>
+    <div class="row"><div class="lab">Pavimento</div>${seg("fp",LK.fp)}${sw("floor",LK.floor)}</div>
+    ${LK.cur.length?`<div class="row"><div class="lab">${LK.curL}</div>${sw("cur",LK.cur)}</div>`:""}
     <div class="note">Trascina la stanza col dito per vederla meglio.</div></div>`,[["Fatto","primary",()=>{ARR=null;saveLook();dirty=true;after&&after()}]]);
   ARR={sel:null,drag:null};arrUI();
   o.querySelector("#arrRot").onclick=arrRotate;o.querySelector("#arrTint").onclick=arrTint;o.querySelector("#arrReset").onclick=arrReset;o.querySelector("#arrDel").onclick=arrRemove;o.querySelector("#arrPlus").onclick=arrAddMenu;
@@ -1756,7 +1782,7 @@ function drawShipWalls(){
   const[wl,wr]=room.wall.map(vivid);
   for(const s of["L","R"]){const base=s==="L"?wl:wr;
     // pannelli con giunture e rivetti
-    for(let a=0;a<N;a+=1.5)for(let z=0;z<WH;z+=1.25){const q=wquad(s,a+.06,Math.min(N,a+1.5)-.06,z+.06,Math.min(WH,z+1.25)-.06);rpath(q,4);ctx.fillStyle=((a/1.5+z/1.25)|0)%2?mixC(base,"#ffffff",.08):mixC(base,"#5b3f9a",.06);ctx.fill();
+    if(room.wp==="panels")for(let a=0;a<N;a+=1.5)for(let z=0;z<WH;z+=1.25){const q=wquad(s,a+.06,Math.min(N,a+1.5)-.06,z+.06,Math.min(WH,z+1.25)-.06);rpath(q,4);ctx.fillStyle=((a/1.5+z/1.25)|0)%2?mixC(base,"#ffffff",.08):mixC(base,"#5b3f9a",.06);ctx.fill();
       ctx.strokeStyle="rgba(60,60,110,.28)";ctx.lineWidth=1.2;ctx.stroke();
       for(const[da,dz]of[[.16,.16],[1.34,.16],[.16,1.09],[1.34,1.09]]){if(a+da>N)continue;const r=wq(s,a+da,z+dz);ctx.beginPath();ctx.arc(r[0],r[1],1.6,0,7);ctx.fillStyle="rgba(70,70,120,.45)";ctx.fill()}}
     // tubi in alto
@@ -1817,6 +1843,95 @@ function drawSpaceBackdrop(){const x=VW*.1,y=VH*.8,r=Math.min(VW,VH)*.16;
   ctx.save();ctx.translate(x,y);ctx.rotate(-.35);ctx.beginPath();ctx.ellipse(0,0,r*1.9,r*.45,0,Math.PI,0);ctx.strokeStyle="rgba(255,214,165,.55)";ctx.lineWidth=r*.12;ctx.stroke();
   const g=ctx.createRadialGradient(-r*.35,-r*.35,r*.1,0,0,r);g.addColorStop(0,"#ffd6a5");g.addColorStop(.6,"#f4a261");g.addColorStop(1,"#9d4edd");ctx.beginPath();ctx.arc(0,0,r,0,7);ctx.fillStyle=g;ctx.fill();
   ctx.beginPath();ctx.ellipse(0,0,r*1.9,r*.45,0,0,Math.PI);ctx.strokeStyle="rgba(255,214,165,.75)";ctx.stroke();ctx.restore()}
+
+// ================= Castello: muri di pietra, finestre ad arco con tendaggi, torce, stendardi, mobili in stile =================
+const GOLD="#e9b730",WOOD="#5e3b23",WOOD2="#4a2c1d";
+function trim(r,b,c=GOLD){r.deco(b,{t:"fy",u0:0,u1:1,w0:.86,w1:.96,c});r.deco(b,{t:"fx",v0:0,v1:1,w0:.86,w1:.96,c})}
+function carve(r,b,c){r.deco(b,{t:"fy",u0:.12,u1:.88,w0:.18,w1:.72,c:c||mixHex(b.c,-.12)});r.deco(b,{t:"fx",v0:.12,v1:.88,w0:.18,w1:.72,c:c||mixHex(b.c,-.18)})}
+// tavolo a cavalletto
+function cTable(r,x,y,w,d,h=1.7,c=WOOD){const t=r.box(x,y,h-.2,w,d,.2,c);trim(r,t);
+  const along=w>=d;
+  if(along){[x+.18,x+w-.4].forEach(ex=>{const e=r.box(ex,y+.15,0,.22,d-.3,h-.2,c);carve(r,e)});r.box(x+.4,y+d/2-.09,.4,w-.8,.18,.18,c)}
+  else{[y+.18,y+d-.4].forEach(ey=>{const e=r.box(x+.15,ey,0,w-.3,.22,h-.2,c);carve(r,e)});r.box(x+w/2-.09,y+.4,.4,.18,d-.8,.18,c)}
+  return t}
+function cBench(r,x,y,w,d,c=WOOD,top="#9d0208"){const s=r.box(x,y,.5,w,d,.16,c);trim(r,s);const along=w>=d;
+  if(along){[x+.1,x+w-.3].forEach(ex=>r.box(ex,y+.05,0,.2,d-.1,.5,c))}else{[y+.1,y+d-.3].forEach(ey=>r.box(x+.05,ey,0,w-.1,.2,.5,c))}
+  const cu=r.box(x+.06,y+.06,.66,w-.12,d-.12,.1,top);return cu}
+function cChair(r,x,y,c=WOOD,v="#9d0208"){[[0,0],[.66,0],[0,.66],[.66,.66]].forEach(([a,b])=>r.box(x+a,y+b,0,.14,.14,.85,c));
+  r.box(x,y,.85,.8,.8,.12,c);r.box(x+.04,y+.04,.97,.72,.72,.08,v);const bk=r.box(x,y+.66,.97,.8,.14,1.25,c);r.deco(bk,{t:"fy",u0:.18,u1:.82,w0:.15,w1:.8,c:v});
+  r.box(x+.05,y+.66,2.22,.16,.14,.2,GOLD);r.box(x+.32,y+.66,2.22,.16,.14,.32,GOLD);r.box(x+.59,y+.66,2.22,.16,.14,.2,GOLD)}
+function cChest(r,x,y,w,d,c="#7f4f24"){const b=r.box(x,y,0,w,d,.8,c);[.15,.85].forEach(u=>{r.deco(b,{t:"fy",u0:u-.04,u1:u+.04,w0:0,w1:1,c:"#3b3b4f"});r.deco(b,{t:"fx",v0:u-.04,v1:u+.04,w0:0,w1:1,c:"#3b3b4f"})});
+  r.deco(b,{t:"fy",u0:.44,u1:.56,w0:.55,w1:.85,c:GOLD});const l=r.box(x-.04,y-.04,.8,w+.08,d+.08,.2,mixHex(c,.06));trim(r,l,"#3b3b4f");return l}
+function cCornice(r,x,y,z,w,d,c=WOOD){const k=r.box(x-.06,y-.06,z,w+.12,d+.12,.16,c);trim(r,k);
+  const n=Math.max(2,Math.round((w>d?w:d)/.6));for(let i=0;i<n;i++){const t=i/(n-1);if(w>d)r.box(x+t*(w-.2),y+d/2-.1,z+.16,.2,.2,.18,GOLD);else r.box(x+d/2-.1,y+t*(d-.2),z+.16,.2,.2,.18,GOLD)}}
+function cBookR(r,x,w,zs,h=3.9){const pl=r.bookcaseR(x,w,zs,WOOD,h);cCornice(r,x,0,h,w,1.0);return pl}
+function cBookL(r,y,d,zs,h=3.9){const pl=r.bookcaseL(y,d,zs,WOOD,h);cCornice(r,0,y,h,1.0,d);return pl}
+function cWardrobe(r,o){const op=r.cabinetR(Object.assign({c:WOOD,inner:"#2b1d1a"},o));cCornice(r,o.x,0,o.h,o.w,o.d);return op}
+function cArmchair(r,x,y,v){const a=r.armchair(x,y,v);r.boxes.slice(-6).forEach(b=>{if(b.z<.5)b.c=WOOD;else r.deco(b,{t:"fy",u0:0,u1:1,w0:.85,w1:.97,c:GOLD})});return a}
+function cThrone(r,x){const g=GOLD;r.box(x-.2,-.0,0,1.8,1.6,.25,"#7f5539");
+  const bk=r.box(x,0,.25,1.4,.35,2.6,g);r.deco(bk,{t:"fy",u0:.15,u1:.85,w0:.12,w1:.85,c:"#9d0208"});
+  r.box(x+.1,0,2.85,.3,.35,.35,g);r.box(x+.55,0,2.85,.3,.35,.6,g);r.box(x+1.0,0,2.85,.3,.35,.35,g);
+  const s=r.box(x,.35,.25,1.4,1.0,.6,"#9d0208");trim(r,s,g);r.box(x,.35,.85,.22,1.0,.55,g);r.box(x+1.18,.35,.85,.22,1.0,.55,g);r.slot(s,"throne",.5,.5);return s}
+function cHearth(r,x){const m=r.box(x,0,0,2.6,1.0,2.4,"#a79a8a");for(let i=0;i<4;i++)r.deco(m,{t:"fy",u0:0,u1:1,w0:i*.25+.12,w1:i*.25+.135,c:"#8d7b68"});
+  r.deco(m,{t:"fy",u0:.22,u1:.78,w0:.05,w1:.62,c:"#2b1d1a"});r.deco(m,{t:"fy",u0:.32,u1:.68,w0:.08,w1:.3,c:"#f77f00"});r.deco(m,{t:"fy",u0:.4,u1:.6,w0:.08,w1:.2,c:"#ffd60a"});r.tag("hearth",m);
+  const t=r.box(x-.15,0,2.4,2.9,1.15,.18,"#8d7b68");trim(r,t,"#6c584c");[.2,.5,.8].forEach(u=>r.slot(t,"hearth",u,.5));return m}
+function cCanopy(r,x,y,w,d,c,v){const b=r.bed(x,y,w,d,c);r.slot(b.pillow,"bed",.5,.5);r.bedCovers(b,1,42);
+  [[x,y],[x+w-.14,y],[x,y+d-.14],[x+w-.14,y+d-.14]].forEach(([a,q])=>r.box(a,q,0,.14,.14,3.5,GOLD));
+  const top=r.box(x-.05,y-.05,3.5,w+.1,d+.1,.25,v);r.deco(top,{t:"fy",u0:0,u1:1,w0:0,w1:.35,c:GOLD});r.deco(top,{t:"fx",v0:0,v1:1,w0:0,w1:.35,c:GOLD});
+  r.box(x+.14,y,1.3,.08,.55,2.2,v);r.box(x+.14,y+d-.55,1.3,.08,.55,2.2,v);r.box(x+w-.22,y+d-.55,1.3,.08,.4,2.2,v);return b}
+
+// ---- muri di pietra, stendardi, torce ----
+function stoneWall(s,base){
+  for(let z=0,row=0;z<WH;z+=.5,row++)for(let a=-(row%2)*.45;a<N;a+=.9){const a0=Math.max(0,a+.03),a1=Math.min(N,a+.87);if(a1<=a0)continue;
+    const q=wquad(s,a0,a1,z+.03,Math.min(WH,z+.47));rpath(q,3);const k=((a*7+row*13)|0)%4;ctx.fillStyle=k===0?mixC(base,"#ffffff",.1):k===1?mixC(base,"#5b3f9a",.08):k===2?mixC(base,"#c9a273",.08):base;ctx.fill();
+    ctx.strokeStyle="rgba(70,50,60,.22)";ctx.lineWidth=1;ctx.stroke()}}
+function castleLayout(){if(R.castle)return R.castle;const L={torches:[],drapes:[]},wallN=room.items.filter(d=>d[2].includes("wall")).length;
+  for(const s of["L","R"])for(let a=.6;a<N-.6&&L.torches.length<4;a+=.3){if(!wallFree(s,a-.25,a+.25,2.4,3.6))continue;if(L.torches.some(t=>t.s===s&&Math.abs(t.a-a)<2.4))continue;if(wallN>2&&L.torches.length>=2)break;L.torches.push({s,a})}
+  for(const s of["R","L"])for(let a=.4;a<N-1.6&&L.drapes.length<(wallN>2?1:2);a+=.25){if(!wallFree(s,a,a+1.4,1.9,4.3)||(wallN&&!wallFree(s,a,a+3.0,1.4,4.3)))continue;
+    if(L.drapes.some(d=>d.s===s)||L.torches.some(t=>t.s===s&&t.a>a-.4&&t.a<a+1.8))continue;L.drapes.push({s,a0:a,a1:a+1.4,k:L.drapes.length})}
+  return R.castle=L}
+function drawTapestry(d){const{s,a0,a1,k}=d,z1=4.25,z0=1.95,C=[["#9d0208","#1d3557","#e9b730"],["#1d3557","#2d6a4f","#e9b730"],["#5a189a","#9d0208","#e9b730"]][(k+((a0*3)|0))%3];
+  line(wq(s,a0-.15,z1+.05),wq(s,a1+.15,z1+.05),"#6b4226",4);for(const a of[a0-.15,a1+.15]){const p=wq(s,a,z1+.05);ctx.beginPath();ctx.arc(p[0],p[1],4,0,7);ctx.fillStyle=GOLD;ctx.fill()}
+  const body=[wq(s,a0,z1),wq(s,a1,z1)];for(let i=6;i>=0;i--){const a=a0+(a1-a0)*i/6;body.push(wq(s,a,z0+(i%2?.12:0)))}
+  poly(body,C[0],"#4a2c5e",1.5);poly(wquad(s,a0+.1,a1-.1,z0+.2,z1-.1),null,C[2],2);
+  poly(wquad(s,a0+.25,a1-.25,z0+.45,z1-.35),C[1]);const m=(a0+a1)/2;poly([wq(s,m,z1-.5),wq(s,m+.3,(z0+z1)/2+.1),wq(s,m,z0+.6),wq(s,m-.3,(z0+z1)/2+.1)],C[2],"#4a2c5e",1);
+  for(let i=0;i<=8;i++){const a=a0+(a1-a0)*i/8;line(wq(s,a,z0+.02),wq(s,a,z0-.12),C[2],1.5)}}
+function drawCastleWalls(){const[wl,wr]=room.wall.map(vivid);
+  if(room.wp==="stone"){stoneWall("L",wl);stoneWall("R",wr)}
+  // stendardi a festone in alto
+  for(const s of["L","R"]){const col=["#9d0208","#e9b730","#1d3557"];for(let a=.2,i=0;a<N-.4;a+=.6,i++){poly([wq(s,a,4.72),wq(s,a+.5,4.72),wq(s,a+.25,4.35)],col[i%3],"rgba(60,30,40,.45)",1)}
+    line(wq(s,0,4.74),wq(s,N,4.74),"#6b4226",2.5)}
+  for(const d of castleLayout().drapes)drawTapestry(d);
+  const t=now/1000;
+  for(const tc of castleLayout().torches){const{s,a}=tc;poly(wquad(s,a-.06,a+.06,2.4,3.05),"#3b3b4f","#1d1b26",1.2);poly(wquad(s,a-.16,a+.16,3.05,3.2),"#6c584c","#1d1b26",1.2);
+    const f=wq(s,a,3.38+.03*Math.sin(t*9+a)),fl=1+.12*Math.sin(t*13+a*3);
+    const g=ctx.createRadialGradient(f[0],f[1],0,f[0],f[1],46*fl);g.addColorStop(0,"rgba(255,200,90,.45)");g.addColorStop(1,"rgba(255,200,90,0)");ctx.fillStyle=g;ctx.beginPath();ctx.arc(f[0],f[1],46*fl,0,7);ctx.fill();
+    ctx.beginPath();ctx.ellipse(f[0],f[1],5*fl,10*fl,0,0,7);ctx.fillStyle="#ff9f1c";ctx.fill();ctx.beginPath();ctx.ellipse(f[0],f[1]+2,2.6,5,0,0,7);ctx.fillStyle="#fff3b0";ctx.fill()}
+}
+// finestra ad arco con cornice di pietra, vetri a rombi e tendaggi di velluto
+function archPts(s,a0,a1,z0,z1,inset=0){const m=(a0+a1)/2,r=(a1-a0)/2-inset,zs=z1-r-inset,pts=[wq(s,a0+inset,z0+inset),wq(s,a1-inset,z0+inset)];
+  for(let i=0;i<=16;i++){const t=i/16*Math.PI;pts.push(wq(s,m+Math.cos(t)*r,zs+Math.sin(t)*r))}return pts}
+function drawArchWindow(w){const{side:s,a0,a1,z0,z1}=w,cur=room.cur?vivid(room.cur):null;
+  rpath(archPts(s,a0-.14,a1+.14,z0-.12,z1+.14),2);ctx.fillStyle="#bfb5a8";ctx.fill();ctx.strokeStyle="#4a2c5e";ctx.lineWidth=2;ctx.stroke();
+  for(let i=0;i<9;i++){const t=i/8*Math.PI,m=(a0+a1)/2,r=(a1-a0)/2+.07,zs=z1-(a1-a0)/2;line(wq(s,m+Math.cos(t)*(r-.07),zs+Math.sin(t)*(r-.07)),wq(s,m+Math.cos(t)*(r+.07),zs+Math.sin(t)*(r+.07)),"rgba(70,50,60,.35)",1)}
+  const glass=archPts(s,a0,a1,z0,z1,.06);rpath(glass,2);const g=ctx.createLinearGradient(...wq(s,a0,z1),...wq(s,a0,z0));g.addColorStop(0,"#7fb7e8");g.addColorStop(1,"#e3f3ff");ctx.fillStyle=g;ctx.fill();
+  ctx.save();rpath(glass,2);ctx.clip();for(let k=-6;k<=6;k++){line(wq(s,a0+k*.3,z0),wq(s,a0+k*.3+(z1-z0),z1),"rgba(80,70,90,.45)",1.2);line(wq(s,a1-k*.3,z0),wq(s,a1-k*.3-(z1-z0),z1),"rgba(80,70,90,.45)",1.2)}
+  poly(wquad(s,a0+.15,a0+.32,z0+.2,z1-.6),"rgba(255,255,255,.35)");ctx.restore();rpath(glass,2);ctx.strokeStyle="#4a2c5e";ctx.lineWidth=1.6;ctx.stroke();
+  if(!cur)return;
+  // mantovana smerlata
+  const top=z1+.42,v=[];v.push(wq(s,a0-.45,top+.18),wq(s,a1+.45,top+.18));const n=6;for(let i=n;i>=0;i--){const a=a0-.45+(a1-a0+.9)*i/n;v.push(wq(s,a,top-.22));if(i>0)v.push(wq(s,a-(a1-a0+.9)/n/2,top-.02))}
+  poly(v,cur,"#4a2c5e",1.4);line(wq(s,a0-.45,top-.12),wq(s,a1+.45,top-.12),GOLD,2);
+  // tende raccolte con il cordone
+  for(const[sa,sb,dir]of[[a0-.5,a0+.12,1],[a1-.12,a1+.5,-1]]){const pts=[wq(s,sa,top),wq(s,sb,top)];const tie=z0+.9;
+    pts.push(wq(s,dir>0?sb-.12:sb-.32,tie+.2),wq(s,dir>0?sb-.05:sb-.1,z0-.35),wq(s,dir>0?sa:sa+.08,z0-.35),wq(s,dir>0?sa+.12:sa+.3,tie));
+    rpath(pts,6);ctx.fillStyle=cur;ctx.fill();ctx.strokeStyle="#4a2c5e";ctx.lineWidth=1.3;ctx.stroke();
+    for(let k=1;k<4;k++){const aa=sa+(sb-sa)*k/4;line(wq(s,aa,top-.1),wq(s,aa+(dir>0?-.04:.04)*k,tie+.15),"rgba(40,10,30,.25)",1.2)}
+    const tc=wq(s,(sa+sb)/2+(dir>0?-.06:.06),tie+.05);ctx.beginPath();ctx.ellipse(tc[0],tc[1],8,4,0,0,7);ctx.fillStyle=GOLD;ctx.fill();ctx.strokeStyle="#4a2c5e";ctx.lineWidth=1;ctx.stroke()}
+}
+// pavimento a lastre di pietra
+function drawFlagstones(){const fl=vivid(room.floor);for(let b=0;b<N;b+=1.1)for(let a=-(Math.round(b/1.1)%2)*.6;a<N;a+=1.3){
+  const q=[P(Math.max(0,a+.04),b+.04,0),P(Math.min(N,a+1.26),b+.04,0),P(Math.min(N,a+1.26),Math.min(N,b+1.06),0),P(Math.max(0,a+.04),Math.min(N,b+1.06),0)];if(Math.min(N,a+1.26)<=Math.max(0,a+.04))continue;
+  rpath(q,5);const k=((a*5+b*11)|0)%3;ctx.fillStyle=k?mixC(fl,k===1?"#ffffff":"#5b3f9a",.07):fl;ctx.fill();ctx.strokeStyle="rgba(60,45,55,.25)";ctx.lineWidth=1.2;ctx.stroke()}}
 
 // ================= Tre traslochi in più (stanze 11–21) =================
 Object.assign(MODELS,{
@@ -2809,45 +2924,46 @@ ROOMS.push(
  items:[I("crown","Corona del re",["throne","sidetable"]),I("scepter","Scettro",["throne","sidetable"]),I("goblet","Calice d'oro",["table","sidetable"]),I("goblet","Calice d'oro",["table","sidetable"]),
   I("shield","Scudo",["wall"]),I("banner","Stendardo",["wall"]),I("tapestry","Arazzo",["wall"]),I("candelabra","Candelabro",["table","sidetable"]),I("treasure","Scrigno",["chest","table"]),
   I("cushion","Cuscino reale",["throne","bench"]),I("key","Chiave del tesoro",["sidetable","chest"])],
- build(r){throne(r,3.6);r.rug(3.4,1.4,1.8,6.0,"#9d0208");
-  const tb=r.table(0,2.6,1.2,2.6,1.8,"#7f4f24");col(r,tb,"table",.5,[.2,.5,.8]);
-  const s1=r.box(1.6,.2,0,.9,.9,1.2,"#7f4f24");r.slot(s1,"sidetable",.5,.5);const s2=r.box(6.0,.2,0,.9,.9,1.2,"#7f4f24");r.slot(s2,"sidetable",.5,.5);
-  const ch=r.box(0,6.4,0,1.0,1.6,1.0,"#9c6644");r.deco(ch,{t:"fx",v0:0,v1:1,w0:.7,w1:.8,c:"#ffd60a"});r.slot(ch,"chest",.5,.5);
-  const bn=r.box(7.6,2.4,0,.9,2.4,.8,"#9d0208");col(r,bn,"bench",.5,[.3,.7]);r.window("R",6.6,8.4,2.2,4.0)}},
+ build(r){cThrone(r,3.6);r.rug(3.4,1.8,1.8,5.8,"#9d0208");
+  const tb=cTable(r,0,2.6,1.2,2.6,1.8);col(r,tb,"table",.5,[.2,.5,.8]);
+  [1.6,6.0].forEach(x=>{const sd=r.box(x,.2,0,.9,.9,1.2,WOOD);trim(r,sd);carve(r,sd);r.slot(sd,"sidetable",.5,.5)});
+  const ch=cChest(r,0,6.4,1.0,1.6);r.slot(ch,"chest",.5,.5);
+  const bn=cBench(r,7.6,2.4,.9,2.4);col(r,bn,"bench",.5,[.3,.7]);r.window("R",6.9,8.3,1.8,4.0)}},
 {w:"castello",h:CA,name:"La cucina del castello",N:9,wall:["#f3e6d0","#ead9bd"],wp:"tile",floor:"#b9a68a",fp:"checker",cur:"#6a994e",
  cartons:[[3.4,3.6],[5.6,5.4],[2.6,7.0]],
  items:[I("roastchicken","Pollo arrosto",["table","hearth"]),I("cheesewheel","Forma di formaggio",["table","shelf"]),I("breadloaf","Pagnotta",["table","shelf"]),I("breadloaf","Pagnotta",["table","shelf"]),
   I("applebasket","Cesto di mele",["table","shelf"]),I("jug","Brocca",["table"]),I("goblet","Calice",["table","shelf"]),I("woodspoon","Mestolo di legno",["table","shelf","hearth"]),I("cauldron","Calderone",["hearth"]),
   I("candle","Candela",["table","sill"]),I("rope","Treccia d'aglio",["shelf","table"])],
- build(r){hearth(r,2.6);const tb=r.table(1.6,3.6,3.0,1.4,1.7,"#9c6644");row(r,tb,"table",[.2,.5,.8],.5);r.box(1.6,3.0,0,3.0,.45,.85,"#7f4f24");r.box(1.6,5.15,0,3.0,.45,.85,"#7f4f24");
-  const sh=r.shelfL(1.0,2.8,2.6,"#7f4f24");col(r,sh,"shelf",.5,[.2,.5,.8]);barrel(r,6.6,.2);barrel(r,7.6,.2);r.window("L",4.4,6.4,2.2,3.8);r.sill("L",4.4)}},
+ build(r){cHearth(r,2.6);const tb=cTable(r,1.6,3.6,3.0,1.4,1.7);row(r,tb,"table",[.2,.5,.8],.5);cBench(r,1.6,3.0,3.0,.45);cBench(r,1.6,5.15,3.0,.45);
+  const sh=r.shelfL(1.0,2.8,2.6,WOOD);trim(r,sh);col(r,sh,"shelf",.5,[.2,.5,.8]);barrel(r,6.6,.2);barrel(r,7.6,.2);r.window("L",4.6,6.0,1.8,3.9);r.sill("L",4.6)}},
 {w:"castello",h:CA,name:"La torre del mago",N:9,wall:["#4a3d7a","#3f346b"],wp:"dots",floor:"#6b5a8a",fp:"wood",cur:"#5a189a",
  cartons:[[3.4,3.6],[5.4,5.6],[3.0,7.0]],
  items:[I("wand","Bacchetta magica",["desk","bookcase"]),I("oldbook","Libro di magie",["bookcase","desk"]),I("oldbook","Grimorio",["bookcase","desk"]),I("crystal","Sfera di cristallo",["sidetable","desk"]),
   I("owl","Gufo",["bookcase","desk"]),I("hourglass","Clessidra",["desk","bookcase"]),I("potion","Pozione viola",["bookcase"]),I("potion","Pozione azzurra",["bookcase"]),I("planetglobe","Globo celeste",["desk"]),
   I("tarot","Carte magiche",["desk","sidetable"]),I("starmap","Mappa delle stelle",["wall"]),I("candle","Candela",["desk","sidetable"])],
- build(r){const b1=r.bookcaseR(.4,2.4,[.3,1.5,2.7],"#5e3b23",3.9);b1.forEach(p=>[.28,.72].forEach(u=>r.slot(p,"bookcase",u,.5)));
-  const b2=r.bookcaseL(1.6,2.4,[.3,1.5,2.7],"#5e3b23",3.9);b2.forEach(p=>[.28,.72].forEach(v=>r.slot(p,"bookcase",.5,v)));
-  const dk=r.table(4.6,.2,2.4,1.2,1.8,"#7f4f24");row(r,dk,"desk",[.2,.5,.8],.5);r.chair(5.4,1.6,"#5a189a");
-  const sd=r.box(5.0,5.2,0,.9,.9,1.1,"#5e3b23");r.slot(sd,"sidetable",.5,.5);const ar=r.armchair(6.2,4.0,"#7b2cbf");r.window("R",7.2,8.6,2.2,3.8);r.rug(2.4,3.0,3,3,"#5a189a",true)}},
+ build(r){const b1=cBookR(r,.4,2.4,[.3,1.5,2.7]);b1.forEach(p=>[.28,.72].forEach(u=>r.slot(p,"bookcase",u,.5)));
+  const b2=cBookL(r,1.6,2.4,[.3,1.5,2.7]);b2.forEach(p=>[.28,.72].forEach(v=>r.slot(p,"bookcase",.5,v)));
+  const dk=cTable(r,4.6,.2,2.4,1.2,1.8);row(r,dk,"desk",[.2,.5,.8],.5);cChair(r,5.4,1.6,WOOD,"#5a189a");
+  const sd=r.box(5.0,5.2,0,.9,.9,1.1,WOOD);trim(r,sd);r.slot(sd,"sidetable",.5,.5);cArmchair(r,6.2,4.0,"#7b2cbf");r.window("R",7.2,8.4,1.8,3.9);r.rug(2.4,3.0,3,3,"#5a189a",true)}},
 {w:"castello",h:CA,name:"La camera della principessa",N:9,wall:["#ffe5ef","#ffd6e8"],wp:"dots",floor:"#f2d0a9",fp:"wood",cur:"#ff8fab",
  cartons:[[3.8,3.6],[5.6,5.6],[3.4,7.2]],
  items:[I("tiara","Tiara",["dresser","nightstand"]),I("jewelry","Portagioie",["dresser"]),I("mirror","Specchio",["wall"]),I("dress","Abito da ballo",["wardin"]),I("dress","Abito della festa",["wardin"]),
   I("vase","Fiori",["dresser","nightstand","sill"]),I("unicorn","Unicorno di peluche",["bed","armchair"]),I("perfume","Profumo",["dresser"]),I("hairbrush","Spazzola",["dresser","nightstand"]),
   I("books","Libro delle fiabe",["nightstand","armchair"]),I("portrait","Ritratto della regina",["wall"]),I("slippers","Pantofoline",["floor"]),I("harp","Arpa",["floor"])],
- build(r){canopy(r,0,4.8,3.4,1.9,"#ffafcc");const ns=r.box(0,3.6,0,.95,.95,1.1,"#ffffff");r.slot(ns,"nightstand",.5,.5);
-  const dr=r.box(3.4,.15,0,2.2,.9,1.3,"#ffffff");[.25,.75].forEach(u=>r.slot(dr,"dresser",u,.5));r.drawer(dr,"y",.45,.85,{n:2,cap:36});
-  r.cabinetR({x:.6,w:2.2,d:1.0,h:3.4,c:"#ffffff",inner:"#ffe5ef",shelves:[1.4,2.4],doors:[{hinge:"L",len:1.1},{hinge:"R",len:1.1}],kind:"wardin",cap:46,n:2,label:"l'armadio"});
-  const ar=r.armchair(6.4,3.0,"#ffc8dd");r.slot(ar,"armchair",.5,.5);r.window("R",6.0,8.0,2.2,3.9);r.sill("R",6.0);r.rug(3.4,3.2,2.8,2.8,"#ffc8dd",true)}},
+ build(r){cCanopy(r,0,4.8,3.4,1.9,"#ffafcc","#c9184a");const ns=r.box(0,3.6,0,.95,.95,1.1,"#ffffff");trim(r,ns);r.slot(ns,"nightstand",.5,.5);
+  const dr=r.box(3.4,.15,0,2.2,.9,1.3,"#ffffff");trim(r,dr);[.25,.75].forEach(u=>r.slot(dr,"dresser",u,.62));r.drawer(dr,"y",.45,.85,{n:2,cap:36});
+  const mr=r.box(3.7,.15,1.3,1.6,.12,1.5,GOLD);r.deco(mr,{t:"fy",u0:.1,u1:.9,w0:.1,w1:.9,c:"#d7eef5"});
+  cWardrobe(r,{x:.6,w:2.2,d:1.0,h:3.4,c:"#ffffff",inner:"#ffe5ef",shelves:[1.4,2.4],doors:[{hinge:"L",len:1.1},{hinge:"R",len:1.1}],kind:"wardin",cap:46,n:2,label:"l'armadio"});
+  const ar=cArmchair(r,6.4,3.0,"#ffc8dd");r.slot(ar,"armchair",.5,.5);r.window("R",6.3,7.7,1.8,3.9);r.sill("R",6.3);r.rug(3.4,3.2,2.8,2.8,"#ffc8dd",true)}},
 {w:"castello",h:CA,name:"Le scuderie",N:9,wall:["#e9d8b4","#dfcca3"],wp:"plain",floor:"#c2a36b",fp:"wood",cur:null,
  cartons:[[3.6,3.4],[5.6,5.6],[3.2,7.0]],
  items:[I("saddle","Sella",["tack","bench"]),I("horseshoe","Ferro di cavallo",["bench","tack"]),I("horsebrush","Striglia",["bench","tack","hay"]),I("carrots","Carote",["hay","bench"]),
   I("applebasket","Mele per i cavalli",["hay","bench"]),I("bucket","Secchio",["floor","trough"]),I("rope","Corda",["tack","bench","hay"]),I("lantern","Lanterna",["bench","floor"]),I("wateringcan","Annaffiatoio",["floor","trough"]),
   I("hat","Cappello da cavaliere",["tack","bench"])],
  build(r){hay(r,0,2.6);hay(r,0,3.7);hay(r,1.4,0);
-  const tk=r.cabinetR({x:3.6,w:1.8,d:.9,h:2.8,c:"#9c6644",inner:"#6b4226",shelves:[1.3],doors:[{hinge:"L",len:.9},{hinge:"R",len:.9}],kind:"tack",cap:44,n:2,label:"l'armadio delle selle"});r.tag("tack",tk.op);
-  const tr=r.box(6.2,.3,0,2.2,.8,.7,"#7f4f24");r.deco(tr,{t:"rect",u0:.05,v0:.15,u1:.95,v1:.85,c:"#4cc9f0"});r.slot(tr,"trough",.5,.5);
-  const bn=r.box(0,5.6,0,.9,2.4,.8,"#9c6644");col(r,bn,"bench",.5,[.3,.7]);r.box(4.0,3.6,0,.2,2.2,1.6,"#7f4f24");r.window("R",6.4,8.2,2.4,3.8)}}
+  const tk=cWardrobe(r,{x:3.6,w:1.8,d:.9,h:2.8,c:"#7f4f24",inner:"#4a2c1d",shelves:[1.3],doors:[{hinge:"L",len:.9},{hinge:"R",len:.9}],kind:"tack",cap:44,n:2,label:"l'armadio delle selle"});r.tag("tack",tk.op);
+  const tr=r.box(6.2,.3,0,2.2,.8,.7,"#7f4f24");r.deco(tr,{t:"rect",u0:.05,v0:.15,u1:.95,v1:.85,c:"#4cc9f0"});trim(r,tr,"#3b3b4f");r.slot(tr,"trough",.5,.5);
+  const bn=cBench(r,0,5.6,.9,2.4,WOOD,"#bc8a5f");col(r,bn,"bench",.5,[.3,.7]);const pt=r.box(4.0,3.6,0,.2,2.2,1.6,"#7f4f24");trim(r,pt);r.window("R",6.6,8.0,2.2,3.9)}}
 );
 Object.assign(PUZZLES,{
  [B]:{clues:{banner:"Sullo stendardo è ricamata una corona: due punte in alto e la base tutta piena."},
@@ -2964,8 +3080,11 @@ THEMES.push(
  {w:"pasticceria",near:["flourbag","cocoasack"],t:"I sacchi tutti nello stesso angolo"},
  {w:"pasticceria",by:["vase"],k:["window"],d:1.8,t:"Fiori alla finestra"}
 );
-WORLDCAT.castello={chest:{n:"Cassapanca",b:(r,x,y)=>{const t=r.box(x,y,0,1.4,.9,1.0,"#9c6644");r.deco(t,{t:"fy",u0:0,u1:1,w0:.7,w1:.8,c:"#ffd60a"});r.slot(t,"chest",.5,.5)}},
-  bench:{n:"Panca",b:(r,x,y)=>{const t=r.box(x,y,0,2.0,.8,.8,"#7f4f24");r.slot(t,"bench",.5,.5)}}};
+WORLDCAT.castello={chest:{n:"Cassapanca",b:(r,x,y)=>{const t=cChest(r,x,y,1.4,.9);r.slot(t,"chest",.5,.5)}},
+  bench:{n:"Panca",b:(r,x,y)=>{const t=cBench(r,x,y,2.0,.8);r.slot(t,"bench",.5,.5)}},
+  table:{n:"Tavolo da banchetto",b:(r,x,y)=>{const t=cTable(r,x,y,2.2,1.2,1.7);[.25,.75].forEach(u=>r.slot(t,"table",u,.5))}},
+  chair:{n:"Sedia regale",b:(r,x,y)=>cChair(r,x,y)},
+  bookcase:{n:"Libreria",b:(r,x,y)=>{const pl=cBookL(r,y,2.0,[.3,1.5,2.7]);pl.forEach(p=>[.3,.7].forEach(v=>r.slot(p,"bookcase",.5,v)))}}};
 WORLDCAT.pasticceria={cakestand:{n:"Tavolino dei dolci",b:(r,x,y)=>{const t=r.table(x,y,1.2,1.2,1.5,"#ffffff");r.slot(t,"table",.5,.5)}},
   shelf2:{n:"Scaffale rosa",b:(r,x,y)=>{const t=r.box(x,y,0,1.8,.8,1.4,"#ffafcc");[.25,.75].forEach(u=>r.slot(t,"shelf",u,.5))}}};
 }
@@ -3141,6 +3260,14 @@ function worldTick(){
 function cursedReject(it,t){return R&&R.world==="horror"&&it.cursed&&t&&!allowed(it,t)}
 
 Object.assign(PETCOL,{castello:["#ffd166","#fff3d6"],pasticceria:["#ffafcc","#fff0f6"]});
+
+// aspetto di base coerente col mondo
+ROOMS.forEach(r=>{
+  if(r.w==="spazio"){r.wp="panels";r.fp="grate"}
+  if(r.w==="castello"){r.wp="stone";r.fp=r.name==="Le scuderie"?"wood":"stone";
+    r.wall=r.name==="La torre del mago"?["#7a6e9a","#6b5f8a"]:r.name==="La camera della principessa"?["#e8cfd6","#dcc0c8"]:["#cfc6b8","#c2b8a9"];
+    if(r.fp==="stone")r.floor=r.name==="La torre del mago"?"#8d7b9a":"#b5aa9a"}
+});
 
 function draw(){
   if(!TONE){TONE=mkPattern("rgba(60,35,55,.22)",5,1.05);BGDOT=mkPattern("rgba(255,255,255,.18)",16,2.2)}
