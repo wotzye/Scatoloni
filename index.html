@@ -2286,7 +2286,7 @@ HOUSES.push({year:"👻",name:"Villa Corvi",story:"Nessuno vive qui da cent'anni
 const H=HOUSES.length-1,B=ROOMS.length,W="horror";
 const mantel=(r,x)=>{const m=r.box(x,0,0,2.2,.8,2.0,"#5c4d5b");r.deco(m,{t:"fy",u0:.25,u1:.75,w0:.05,w1:.6,c:"#1b141d"});r.deco(m,{t:"fy",u0:.32,u1:.68,w0:.08,w1:.3,c:"#e85d04"});const t=r.box(x-.1,0,2.0,2.4,1.0,.14,"#3d3448");[.2,.5,.8].forEach(u=>r.slot(t,"mantel",u,.5));return m};
 ROOMS.push(
-{w:W,h:H,name:"L'ingresso della villa",N:9,wall:["#4a3f55","#3d3448"],wp:"stripe",floor:"#3b2e2a",fp:"wood",cur:"#6a1b2a",
+{w:W,h:H,name:"L'ingresso della villa",N:9,wall:["#6b5a7a","#5a4b6a"],wp:"stripe",floor:"#5a463e",fp:"wood",cur:"#6a1b2a",
  cursed:["skull","portrait"],
  cartons:[[3.4,3.4],[5.2,5.0],[2.2,6.6]],
  items:[I("candelabra","Candelabro",["console","mantel"]),I("candle","Candela",["console","mantel","sill"]),I("crow","Corvo impagliato",["console","mantel"]),I("portrait","Ritratto maledetto",["wall"]),
@@ -2299,7 +2299,7 @@ ROOMS.push(
   const us=r.box(6.6,.2,0,.6,.6,.9,"#2b2d42");r.slot(us,"stand",.5,.5);
   r.rug(3.0,3.4,3,3.4,"#6a1b2a");
  }},
-{w:W,h:H,name:"La biblioteca",N:9,wall:["#3f3a4f","#352f44"],wp:"grid",floor:"#40302b",fp:"wood",cur:"#4a1942",
+{w:W,h:H,name:"La biblioteca",N:9,wall:["#5e5672","#504866"],wp:"grid",floor:"#5e4840",fp:"wood",cur:"#4a1942",
  cursed:["crystal"],
  cartons:[[3.4,3.6],[5.0,5.4],[2.6,6.6]],
  items:[I("oldbook","Libro di incantesimi",["bookcase","desk"]),I("oldbook","Libro antico",["bookcase","desk"]),I("bookrow","Fila di libri",["bookcase"]),I("bookrow","Fila di libri",["bookcase"]),
@@ -2312,7 +2312,7 @@ ROOMS.push(
   const ar=r.armchair(5.6,5.0,"#6a1b2a");const sd=r.box(4.4,5.4,0,.9,.9,1.1,"#5e3b23");r.slot(sd,"sidetable",.5,.5);
   r.window("R",7.0,8.4,2.2,3.8);r.rug(2.2,3.0,3.2,3.2,"#3c1642",true);
  }},
-{w:W,h:H,name:"La cucina abbandonata",N:9,wall:["#4d4a3f","#403d34"],wp:"tile",floor:"#3a3632",fp:"checker",cur:"#3a5a40",
+{w:W,h:H,name:"La cucina abbandonata",N:9,wall:["#6e6a58","#5e5a4a"],wp:"tile",floor:"#57524b",fp:"checker",cur:"#3a5a40",
  cursed:["cauldron"],
  cartons:[[3.6,3.6],[2.2,6.0],[5.4,5.6]],
  items:[I("cauldron","Calderone",["stove"]),I("pot","Pentolone",["stove","counter"]),I("weirdjar","Barattolo strano",["pantry","counter","shelf"]),I("weirdjar","Barattolo con gli occhi",["pantry","shelf"]),
@@ -2325,7 +2325,7 @@ ROOMS.push(
   const tb=r.table(1.4,3.4,2.0,1.4,1.7,"#5e3b23");row(r,tb,"table",[.25,.75],.5);r.chair(1.6,5.0,"#4a2c2a");r.chair(2.6,5.0,"#4a2c2a");
   r.window("L",4.6,6.6,2.2,3.8);r.sill("L",4.6);
  }},
-{w:W,h:H,name:"La cameretta della bambola",N:9,wall:["#5c4a5a","#4e3f4d"],wp:"dots",floor:"#4a3a33",fp:"wood",cur:"#9d4edd",
+{w:W,h:H,name:"La cameretta della bambola",N:9,wall:["#7d6479","#6c5568"],wp:"dots",floor:"#66503f",fp:"wood",cur:"#9d4edd",
  cursed:["doll","musicbox"],
  cartons:[[3.8,3.4],[5.6,5.4],[3.0,6.8]],
  items:[I("doll","Bambola maledetta",["armchair"]),I("musicbox","Carillon stregato",["nightstand"]),I("teddy","Orsetto scucito",["bed","chest","armchair"]),I("horse","Cavallo a dondolo",["floor"]),
@@ -2339,7 +2339,7 @@ ROOMS.push(
   const tc=r.box(2.8,.2,0,1.4,.9,1.0,"#6a1b2a");r.slot(tc,"chest",.5,.5);r.drawer(tc,"y",.4,.85,{n:1,cap:34});
   const ar=r.armchair(6.4,2.0,"#9d4edd");r.slot(ar,"armchair",.5,.5);
  }},
-{w:W,h:H,name:"La soffitta dei Corvi",N:9,wall:["#3b3340","#322b37"],wp:"plain",floor:"#3a2b25",fp:"wood",cur:"#22223b",
+{w:W,h:H,name:"La soffitta dei Corvi",N:9,wall:["#5a4e62","#4c4154"],wp:"plain",floor:"#584036",fp:"wood",cur:"#22223b",
  cursed:["treasure","mirror"],
  cartons:[[3.4,3.6],[5.0,5.6],[2.0,6.6]],
  items:[I("treasure","Scrigno maledetto",["trunk"]),I("crystal","Sfera di cristallo",["table","trunk"]),I("candle","Candela",["table","trunk","sill"]),I("candelabra","Candelabro",["table","trunk"]),
@@ -2653,8 +2653,8 @@ function drawWorldFX(){
   if(!R)return;const w=R.world;
   if(w==="horror"){
     ctx.setTransform(dpr,0,0,dpr,0,0);
-    const p=TORCH||{x:VW/2+SHIFT,y:VH*.55},fl=1+.04*Math.sin(now/90)+.03*Math.sin(now/37),r=Math.min(VW,VH)*(ARR?.75:.42)*fl;
-    const g=ctx.createRadialGradient(p.x,p.y,r*.15,p.x,p.y,r);g.addColorStop(0,"rgba(255,220,150,0.04)");g.addColorStop(.55,"rgba(10,6,20,.45)");g.addColorStop(1,`rgba(6,4,14,${ARR?.6:.9})`);
+    const p=TORCH||{x:VW/2+SHIFT,y:VH*.55},fl=1+.04*Math.sin(now/90)+.03*Math.sin(now/37),r=Math.max(VW,VH)*(ARR?.9:.62)*fl;
+    const g=ctx.createRadialGradient(p.x,p.y,r*.2,p.x,p.y,r);g.addColorStop(0,"rgba(255,220,150,0.06)");g.addColorStop(.6,"rgba(20,10,35,.18)");g.addColorStop(1,`rgba(12,6,24,${ARR?.35:.55})`);
     ctx.fillStyle=g;ctx.fillRect(0,0,VW,VH);
   }
 }
