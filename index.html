@@ -642,7 +642,9 @@ function drawShell(){
   rpath(sil,10);ctx.strokeStyle=INK;ctx.lineWidth=3;ctx.stroke();
 }
 function drawWallDecals(){
+  if(R.world==="spazio")drawShipWalls();
   for(const w of R.wall){
+    if(w.t==="window"&&R.world==="spazio"){drawPortholes(w);continue}
     if(w.t==="window"){const{side:s,a0,a1,z0,z1}=w;
       rpath(wquad(s,a0,a1,z0,z1),4);ctx.fillStyle="#fffaf2";ctx.fill();ctx.strokeStyle=INK;ctx.lineWidth=2;ctx.stroke();
       const WG=(WORLDS[R.world]||{}).glass||["#8fd0f0","#e9f7fd"],g=ctx.createLinearGradient(0,wq(s,a0,z1)[1],0,wq(s,a0,z0)[1]);g.addColorStop(0,WG[0]);g.addColorStop(1,WG[1]);
@@ -661,6 +663,7 @@ function drawWallDecals(){
   drawProps();
 }
 function drawFloorDecals(){
+  if(R.world==="spazio")drawShipFloor();
   drawContactShadows();
   for(const g of R.floor){
     if(g.round){const pts=[];for(let k=0;k<48;k++){const a=k/48*Math.PI*2;pts.push(P(g.x+g.w/2+Math.cos(a)*g.w/2,g.y+g.d/2+Math.sin(a)*g.d/2,0))}
@@ -811,6 +814,7 @@ function spotOK(it,sf,x,y,F){
 function wallExt(it,side){const e=itemPrims(it,side)[1],K=ITEM_K;return side==="L"?{a0:e.y0*K,a1:e.y1*K,z0:e.z0*K,z1:e.z1*K}:{a0:e.x0*K,a1:e.x1*K,z0:e.z0*K,z1:e.z1*K}}
 function wallRects(side,ignore){
   const L=[];for(const w of R.wall)if(w.side===side){if(w.t==="window")L.push([w.a0-.3,w.a1+.3,w.z0-.35,w.z1+.4]);else L.push([w.a0-.05,w.a1+.05,w.z0-.05,w.z1+.05])}
+  if(R.world==="spazio"){const S=shipLayout();for(const d of S.doors)if(d.s===side)L.push([d.a0-.15,d.a1+.55,0,d.z1+.25]);for(const q of S.screens)if(q.s===side)L.push([q.a0-.1,q.a1+.1,q.z0-.15,q.z1+.12])}
   for(const pz of R.puzzles||[]){const p=pz.prop;if(!p||p.side!==side)continue;if(p.type==="garland")L.push([p.a0-.2,p.a1+.2,p.z-.75,p.z+.3]);else L.push([p.a0-.1,p.a0+p.size+.1,p.z0-.1,p.z0+p.size+.1])}
   for(const b of R.boxes){if(b.win)continue;if(side==="L"?b.x<.6:b.y<.6)L.push(side==="L"?[b.y,b.y+b.d,b.z,b.z+b.h]:[b.x,b.x+b.w,b.z,b.z+b.h])}
   for(const o of items)if(o!==ignore&&o.state==="slot"&&o.plane===side){const E=wallExt(o,side),a=side==="L"?o.y:o.x;L.push([a+E.a0-.04,a+E.a1+.04,o.z+E.z0-.04,o.z+E.z1+.04])}
@@ -979,6 +983,7 @@ function pieceOK(pc){
 }
 // sposta scatoloni e oggetti sciolti che ora sono sotto un mobile
 function tidyAfterArrange(){
+  R.ship=null;
   for(const c of cartons){if(c.vanish)continue;const hit=()=>R.boxes.some(b=>!b.win&&b.z<1.5&&c.x<b.x+b.w+.1&&b.x<c.x+c.w+.1&&c.y<b.y+b.d+.1&&b.y<c.y+c.d+.1)||cartons.some(o=>o!==c&&!o.vanish&&c.x<o.x+o.w+.1&&o.x<c.x+c.w+.1&&c.y<o.y+o.d+.1&&o.y<c.y+c.d+.1);
     if(!hit())continue;const ox0=c.x,oy0=c.y;let done=false;
     for(let rad=.25;rad<6&&!done;rad+=.25)for(let k=0;k<16&&!done;k++){const a=k/16*6.283;c.x=clamp(ox0+Math.cos(a)*rad,.2,N-1.3);c.y=clamp(oy0+Math.sin(a)*rad,.2,N-1.3);if(!hit())done=true}
@@ -1646,6 +1651,7 @@ function drawDisc(p,Q,k){
 // sfondo: cielo a gradiente con bolle di luce (bokeh) e scintille
 const BOKEH=Array.from({length:22},(_,i)=>({x:((i*73)%100)/100,y:((i*41)%100)/100,r:12+((i*29)%50),a:.06+((i*13)%10)/90,s:(i%5)+1}));
 function drawBackdrop(){
+  if(R&&R.world==="spazio")drawSpaceBackdrop();
   for(const b of BOKEH){const x=b.x*VW+Math.sin(now/4000*b.s+b.x*9)*14,y=b.y*VH+Math.cos(now/5000*b.s+b.y*7)*10;
     const g=ctx.createRadialGradient(x,y,0,x,y,b.r);g.addColorStop(0,`rgba(255,255,255,${b.a*1.6})`);g.addColorStop(1,"rgba(255,255,255,0)");ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,b.r,0,7);ctx.fill()}
   for(let i=0;i<14;i++){const x=((i*97+13)%100)/100*VW,y=((i*57+29)%100)/100*VH,t=(Math.sin(now/600+i*1.7)+1)/2,s=2+t*3;
@@ -1719,6 +1725,87 @@ function pickPet(p){return PET&&PET.bb&&p.x>PET.bb[0]&&p.x<PET.bb[2]&&p.y>PET.bb
 function drawWarmth(){if(!R||R.world==="horror")return;ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);
   const g=ctx.createRadialGradient(VW*.15,0,0,VW*.15,0,Math.max(VW,VH)*.9);g.addColorStop(0,R.world==="spazio"?"rgba(160,200,255,.1)":"rgba(255,226,180,.1)");g.addColorStop(1,"rgba(255,226,180,0)");
   ctx.globalCompositeOperation="lighter";ctx.fillStyle=g;ctx.fillRect(0,0,VW,VH);ctx.restore()}
+
+// ================= Astronave: oblò, portelloni stagni, computer a parete, pareti di metallo =================
+function wallPts(s,ca,cz,ra,rz,n=36){const pts=[];for(let i=0;i<n;i++){const t=i/n*Math.PI*2;pts.push(wq(s,ca+Math.cos(t)*ra,cz+Math.sin(t)*rz))}return pts}
+function wallFree(s,a0,a1,z0,z1,skip){
+  for(const w of R.wall)if(w.side===s&&w!==skip&&a0<w.a1+.15&&a1>w.a0-.15&&z0<w.z1+.15&&z1>w.z0-.15)return false;
+  for(const b of R.boxes){if(b.win)continue;const near=s==="L"?b.x<.8:b.y<.8;if(!near)continue;const ba0=s==="L"?b.y:b.x,ba1=ba0+(s==="L"?b.d:b.w);
+    if(a0<ba1+.1&&a1>ba0-.1&&z0<b.z+b.h+.1&&z1>b.z-.1)return false}
+  for(const pz of R.puzzles||[]){const p=pz.prop;if(!p||p.side!==s)continue;const pa0=p.a0,pa1=p.type==="garland"?p.a1:p.a0+p.size,pz0=p.type==="garland"?p.z-.8:p.z0,pz1=p.type==="garland"?p.z+.3:p.z0+p.size;
+    if(a0<pa1+.1&&a1>pa0-.1&&z0<pz1+.1&&z1>pz0-.1)return false}
+  return true}
+// sceglie una volta per stanza dove mettere portellone e computer
+function shipLayout(){if(R.ship)return R.ship;const L={doors:[],screens:[]},maxS=Math.max(0,3-room.items.filter(d=>d[2].includes("wall")).length);
+  outer:for(const s of["L","R"])for(let a=N-2.2;a>.4;a-=.25)if(wallFree(s,a,a+1.7,0,3.4)){L.doors.push({s,a0:a,a1:a+1.7,z1:3.4});break outer}
+  for(const s of["R","L"])for(let a=.5;a<N-1.4&&L.screens.length<maxS;a+=.25){const z0=2.3,z1=3.4;if(!wallFree(s,a,a+1.3,z0,z1))continue;
+    if(L.doors.some(d=>d.s===s&&a<d.a1+.2&&a+1.3>d.a0-.2)||L.screens.some(q=>q.s===s&&a<q.a1+.3&&a+1.3>q.a0-.3))continue;L.screens.push({s,a0:a,a1:a+1.3,z0,z1,k:L.screens.length})}
+  return R.ship=L}
+function drawShipWalls(){
+  const[wl,wr]=room.wall.map(vivid);
+  for(const s of["L","R"]){const base=s==="L"?wl:wr;
+    // pannelli con giunture e rivetti
+    for(let a=0;a<N;a+=1.5)for(let z=0;z<WH;z+=1.25){const q=wquad(s,a+.06,Math.min(N,a+1.5)-.06,z+.06,Math.min(WH,z+1.25)-.06);rpath(q,4);ctx.fillStyle=((a/1.5+z/1.25)|0)%2?mixC(base,"#ffffff",.08):mixC(base,"#5b3f9a",.06);ctx.fill();
+      ctx.strokeStyle="rgba(60,60,110,.28)";ctx.lineWidth=1.2;ctx.stroke();
+      for(const[da,dz]of[[.16,.16],[1.34,.16],[.16,1.09],[1.34,1.09]]){if(a+da>N)continue;const r=wq(s,a+da,z+dz);ctx.beginPath();ctx.arc(r[0],r[1],1.6,0,7);ctx.fillStyle="rgba(70,70,120,.45)";ctx.fill()}}
+    // tubi in alto
+    for(const[z,c]of[[4.55,"#8d99ae"],[4.3,"#c0c8d8"]]){poly(wquad(s,0,N,z-.08,z+.08),c,"rgba(50,50,90,.6)",1.2);for(let a=.8;a<N;a+=2.2)poly(wquad(s,a,a+.12,z-.13,z+.13),"#5c677d")}
+    // striscia luminosa al neon in basso
+    const g=.55+.45*Math.sin(now/700+(s==="L"?0:2));poly(wquad(s,0,N,.32,.4),`rgba(76,201,240,${.55+.4*g})`);
+    ctx.save();ctx.globalAlpha=.25*g;poly(wquad(s,0,N,.22,.5),"#4cc9f0");ctx.restore()}
+  const Ls=shipLayout();
+  for(const d of Ls.doors)drawHatch(d);
+  for(const q of Ls.screens)drawWallScreen(q);
+}
+function drawHatch(d){const{s,a0,a1,z1}=d,m=(a0+a1)/2,open=0;
+  // cornice a strisce di sicurezza
+  rpath(wquad(s,a0-.12,a1+.12,0,z1+.15),8);ctx.fillStyle="#4a4e69";ctx.fill();ctx.strokeStyle="#2b2d42";ctx.lineWidth=2;ctx.stroke();
+  for(let a=a0-.1;a<a1+.1;a+=.22){poly([wq(s,a,z1+.02),wq(s,Math.min(a1+.1,a+.11),z1+.02),wq(s,Math.min(a1+.1,a+.2),z1+.13),wq(s,Math.min(a1+.1,a+.09),z1+.13)],"#ffd60a")}
+  // due ante con oblò
+  for(const[x0,x1]of[[a0,m-.02],[m+.02,a1]]){rpath(wquad(s,x0,x1,.02,z1-.02),6);const g=ctx.createLinearGradient(...wq(s,x0,z1),...wq(s,x0,0));g.addColorStop(0,"#d7dce8");g.addColorStop(1,"#9aa5b8");ctx.fillStyle=g;ctx.fill();ctx.strokeStyle="#4a4e69";ctx.lineWidth=1.6;ctx.stroke();
+    poly(wquad(s,x0+.08,x1-.08,1.0,1.15),"#ffd60a");poly(wquad(s,x0+.08,x1-.08,.85,1.0),"#2b2d42")}
+  const pw=wallPts(s,m,2.45,.32,.32);rpath(pw,3);ctx.fillStyle="#8d99ae";ctx.fill();ctx.strokeStyle="#2b2d42";ctx.lineWidth=1.5;ctx.stroke();
+  const pi=wallPts(s,m,2.45,.22,.22);rpath(pi,3);ctx.fillStyle="#1b1f4b";ctx.fill();
+  // luce di stato e pannellino
+  const on=Math.sin(now/400)>0;const lp=wq(s,a1+.32,1.7);rpath(wquad(s,a1+.2,a1+.46,1.35,2.05),3);ctx.fillStyle="#2b2d42";ctx.fill();
+  ctx.beginPath();ctx.arc(lp[0],lp[1],3.2,0,7);ctx.fillStyle=on?"#52b788":"#1b4332";ctx.fill();const lp2=wq(s,a1+.32,1.5);ctx.beginPath();ctx.arc(lp2[0],lp2[1],2.6,0,7);ctx.fillStyle="#ff5d8f";ctx.fill()}
+function drawWallScreen(q){const{s,a0,a1,z0,z1,k}=q;
+  rpath(wquad(s,a0-.08,a1+.08,z0-.1,z1+.1),6);ctx.fillStyle="#4a4e69";ctx.fill();ctx.strokeStyle="#2b2d42";ctx.lineWidth=2;ctx.stroke();
+  rpath(wquad(s,a0,a1,z0,z1),4);ctx.fillStyle="#0b1d3a";ctx.fill();
+  const t=now/1000,C=["#4cc9f0","#80ffdb","#f72585","#ffd60a"];
+  if(k%3===0){// grafico
+    const pts=[];for(let i=0;i<=20;i++){const u=i/20;pts.push(wq(s,a0+.08+u*(a1-a0-.16),z0+.45+Math.sin(u*9+t*2)*.18+Math.sin(u*23+t)*.06))}
+    ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.strokeStyle=C[1];ctx.lineWidth=1.6;ctx.stroke()}
+  else if(k%3===1){// radar
+    const c=wq(s,(a0+a1)/2,(z0+z1)/2);rpath(wallPts(s,(a0+a1)/2,(z0+z1)/2,.42,.42),2);ctx.strokeStyle=C[0];ctx.lineWidth=1.2;ctx.stroke();rpath(wallPts(s,(a0+a1)/2,(z0+z1)/2,.22,.22),2);ctx.stroke();
+    const e=wq(s,(a0+a1)/2+Math.cos(t*2)*.42,(z0+z1)/2+Math.sin(t*2)*.42);line(c,e,C[1],1.8);const bl=wq(s,(a0+a1)/2+.18,(z0+z1)/2+.12);ctx.beginPath();ctx.arc(bl[0],bl[1],2.4,0,7);ctx.fillStyle=C[2];ctx.fill()}
+  else{// barre
+    for(let i=0;i<6;i++){const h=.15+.55*(.5+.5*Math.sin(t*1.7+i*1.3));poly(wquad(s,a0+.12+i*.18,a0+.24+i*.18,z0+.1,z0+.1+h),C[i%4])}}
+  for(let i=0;i<4;i++){const p=wq(s,a0+.15+i*.12,z0-.05);ctx.beginPath();ctx.arc(p[0],p[1],1.8,0,7);ctx.fillStyle=Math.sin(now/250+i*1.9)>0?C[i]:"#2b2d42";ctx.fill()}
+  poly(wquad(s,a0+.05,a0+.35,z1-.25,z1-.05),"rgba(255,255,255,.12)")}
+// oblò al posto delle finestre
+function drawPortholes(w){const{side:s,a0,a1,z0,z1}=w,cz=(z0+z1)/2,r=Math.min(.62,(z1-z0)/2*.85),n=Math.max(1,Math.floor((a1-a0+.2)/(r*2+.35))),gap=(a1-a0)/n;
+  for(let i=0;i<n;i++){const ca=a0+gap*(i+.5);
+    rpath(wallPts(s,ca,cz,r+.17,r+.17),2);const g=ctx.createLinearGradient(...wq(s,ca,cz+r),...wq(s,ca,cz-r));g.addColorStop(0,"#e9ecef");g.addColorStop(1,"#8d99ae");ctx.fillStyle=g;ctx.fill();ctx.strokeStyle="#2b2d42";ctx.lineWidth=2;ctx.stroke();
+    for(let k=0;k<10;k++){const t=k/10*Math.PI*2,p=wq(s,ca+Math.cos(t)*(r+.09),cz+Math.sin(t)*(r+.09));ctx.beginPath();ctx.arc(p[0],p[1],1.8,0,7);ctx.fillStyle="#5c677d";ctx.fill()}
+    const glass=wallPts(s,ca,cz,r,r);rpath(glass,2);const gg=ctx.createLinearGradient(...wq(s,ca,cz+r),...wq(s,ca,cz-r));gg.addColorStop(0,"#05051a");gg.addColorStop(1,"#1b1b4b");ctx.fillStyle=gg;ctx.fill();
+    ctx.save();rpath(glass,2);ctx.clip();
+    for(let k=0;k<12;k++){const u=((k*37+i*11)%100)/100-.5,v=((k*61+i*7)%100)/100-.5,p=wq(s,ca+u*r*1.8,cz+v*r*1.8);ctx.fillStyle=k%3?"#ffffff":"#ffe08a";ctx.fillRect(p[0]-1,p[1]-1,k%4?2:3,k%4?2:3)}
+    if(i===0){const pc=wq(s,ca+r*.35,cz-r*.25);ctx.beginPath();ctx.arc(pc[0],pc[1],r*U*.38,0,7);const pg=ctx.createRadialGradient(pc[0]-4,pc[1]-4,1,pc[0],pc[1],r*U*.38);pg.addColorStop(0,"#ffb4a2");pg.addColorStop(1,"#b5179e");ctx.fillStyle=pg;ctx.fill()}
+    poly(wquad(s,ca-r*.6,ca-r*.35,cz-r*.2,cz+r*.6),"rgba(255,255,255,.18)");ctx.restore();
+    rpath(glass,2);ctx.strokeStyle="#2b2d42";ctx.lineWidth=1.5;ctx.stroke()}}
+// pavimento a piastre con strisce di sicurezza
+function drawShipFloor(){
+  for(let a=0;a<N;a++)for(let b=0;b<N;b++){const q=[P(a+.04,b+.04,0),P(a+.96,b+.04,0),P(a+.96,b+.96,0),P(a+.04,b+.96,0)];rpath(q,3);ctx.strokeStyle="rgba(40,40,80,.28)";ctx.lineWidth=1.2;ctx.stroke();
+    for(const[u,v]of[[.15,.15],[.85,.15],[.15,.85],[.85,.85]]){const p=P(a+u,b+v,0);ctx.beginPath();ctx.arc(p[0],p[1],1.3,0,7);ctx.fillStyle="rgba(40,40,80,.35)";ctx.fill()}}
+  for(let t=0;t<N;t+=.4){poly([P(t,0,0),P(t+.2,0,0),P(t+.2+.15,.22,0),P(t+.15,.22,0)],"#ffd60a");poly([P(0,t,0),P(0,t+.2,0),P(.22,t+.2+.15,0),P(.22,t+.15,0)],"#ffd60a")}
+  poly([P(0,.22,0),P(N,.22,0),P(N,.26,0),P(0,.26,0)],"#2b2d42");poly([P(.22,0,0),P(.26,0,0),P(.26,N,0),P(.22,N,0)],"#2b2d42")}
+// pianeta con anelli nello sfondo
+function drawSpaceBackdrop(){const x=VW*.1,y=VH*.8,r=Math.min(VW,VH)*.16;
+  const ng=ctx.createRadialGradient(VW*.2,VH*.3,0,VW*.2,VH*.3,VW*.5);ng.addColorStop(0,"rgba(247,37,133,.18)");ng.addColorStop(1,"rgba(247,37,133,0)");ctx.fillStyle=ng;ctx.fillRect(0,0,VW,VH);
+  ctx.save();ctx.translate(x,y);ctx.rotate(-.35);ctx.beginPath();ctx.ellipse(0,0,r*1.9,r*.45,0,Math.PI,0);ctx.strokeStyle="rgba(255,214,165,.55)";ctx.lineWidth=r*.12;ctx.stroke();
+  const g=ctx.createRadialGradient(-r*.35,-r*.35,r*.1,0,0,r);g.addColorStop(0,"#ffd6a5");g.addColorStop(.6,"#f4a261");g.addColorStop(1,"#9d4edd");ctx.beginPath();ctx.arc(0,0,r,0,7);ctx.fillStyle=g;ctx.fill();
+  ctx.beginPath();ctx.ellipse(0,0,r*1.9,r*.45,0,0,Math.PI);ctx.strokeStyle="rgba(255,214,165,.75)";ctx.stroke();ctx.restore()}
 
 // ================= Tre traslochi in più (stanze 11–21) =================
 Object.assign(MODELS,{
@@ -2334,7 +2421,7 @@ ROOMS.push(
   I("mug","Tazza del capitano",["console","shelf"]),I("planetglobe","Modellino di Saturno",["console","shelf"]),I("rocketmodel","Razzo in miniatura",["shelf"]),I("plant","Piantina",["shelf","console"]),
   I("alienplush","Alieno di peluche",["chair","shelf"]),I("spacehelmet","Casco",["shelf","locker"]),I("clock","Orologio di bordo",["wall"]),I("robot","Robot di bordo",["shelf","floor","console"])],
  build(r){
-  r.window("R",2.0,6.8,2.0,4.2);r.window("L",2.4,5.6,2.0,4.2);
+  r.window("R",2.4,5.2,2.0,4.0);r.window("L",2.6,4.6,2.0,4.0);
   const c1=r.box(1.6,1.4,0,4.4,1.0,1.4,"#5c677d");metal(r,c1,"#4cc9f0");r.tag("console",c1);const t1=r.box(1.5,1.3,1.4,4.6,1.2,.12,"#adb5bd");[.15,.4,.65,.9].forEach(u=>r.slot(t1,"console",u,.5));
   const ch=r.armchair(3.2,3.6,"#e63946");r.slot(ch,"chair",.5,.5);
   const sh=r.bookcaseL(6.0,2.2,[.3,1.5,2.7],"#8d99ae",3.9);sh.forEach(p=>[.28,.72].forEach(v=>r.slot(p,"shelf",.5,v)));
@@ -2594,7 +2681,7 @@ function draw(){
   const zz=Z();ctx.setTransform(dpr*zz,0,0,dpr*zz,dpr*(VW/2+SHIFT-cam.x*zz),dpr*(VH/2-cam.y*zz));
   drawShell();drawWallDecals();drawFloorDecals();
   cartons=cartons.filter(c=>!(c.vanish&&now>c.vanish+340));
-  const list=[...R.boxes,...(ARR?[]:cartons)];
+  const list=[...(R.world==="spazio"?R.boxes.filter(b=>!b.win):R.boxes),...(ARR?[]:cartons)];
   for(const op of R.opens){op.quads=[];
     if(op.type==="door")list.push(...doorParts(op));
     if(op.type==="drawer"){op.lastParts=drawerParts(op);list.push(...op.lastParts)}}
