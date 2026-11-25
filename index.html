@@ -113,6 +113,12 @@ button.primary{background:linear-gradient(180deg,#ff8fab,#ff5d8f);color:#fff;tex
 .seg button.on{background:linear-gradient(180deg,#ff8fab,#ff5d8f);color:#fff}
 .worlds button{border-radius:24px;background:linear-gradient(160deg,#fff,#ffeef7 60%,#efe6ff)}
 #toast{border-radius:999px!important}
+
+.worlds{grid-template-columns:repeat(3,1fr)!important;gap:8px!important}
+.worlds button{padding:6px 10px!important;gap:0!important}
+.worlds .wi{font-size:20px!important}.worlds b{font-size:15px!important}
+.worlds small:not(.wp){font-size:11px!important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.worlds .wp{font-size:11.5px!important}
 </style>
 </head>
 <body>
@@ -1718,6 +1724,8 @@ function drawPet(){
   ctx.fillStyle="rgba(255,120,150,.5)";for(const k of[-1,1]){ctx.beginPath();ctx.ellipse(hx+k*s*.5,hy+s*.25,s*.14,s*.08,0,0,7);ctx.fill()}
   ctx.strokeStyle=C.line;ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(hx-s*.08,hy+s*.26,s*.08,0,Math.PI);ctx.arc(hx+s*.08,hy+s*.26,s*.08,0,Math.PI);ctx.stroke();
   if(R&&R.world==="spazio"){ctx.beginPath();ctx.arc(hx,hy-s*.15,s*1.05,0,7);ctx.fillStyle="rgba(180,230,255,.22)";ctx.fill();ctx.strokeStyle="rgba(255,255,255,.8)";ctx.lineWidth=2;ctx.stroke()}
+  if(R&&R.world==="castello"){ctx.beginPath();ctx.moveTo(hx-s*.32,hy-s*.6);ctx.lineTo(hx-s*.32,hy-s*.95);ctx.lineTo(hx-s*.16,hy-s*.78);ctx.lineTo(hx,hy-s*1.0);ctx.lineTo(hx+s*.16,hy-s*.78);ctx.lineTo(hx+s*.32,hy-s*.95);ctx.lineTo(hx+s*.32,hy-s*.6);ctx.closePath();ctx.fillStyle="#ffd60a";ctx.fill();ctx.strokeStyle=C.line;ctx.lineWidth=1.5;ctx.stroke();ctx.fillStyle="#e63946";ctx.beginPath();ctx.arc(hx,hy-s*.72,s*.06,0,7);ctx.fill()}
+  if(R&&R.world==="pasticceria"){ctx.beginPath();ctx.ellipse(hx,hy-s*.95,s*.42,s*.3,0,0,7);ctx.fillStyle="#fff";ctx.fill();ctx.strokeStyle=C.line;ctx.lineWidth=1.5;ctx.stroke();ctx.beginPath();ctx.rect(hx-s*.3,hy-s*.8,s*.6,s*.22);ctx.fill();ctx.stroke()}
   if(R&&R.world==="ospedale"){ctx.beginPath();ctx.rect(hx-s*.3,hy-s*.95,s*.6,s*.25);ctx.fillStyle="#fff";ctx.fill();ctx.strokeStyle=C.line;ctx.lineWidth=1.5;ctx.stroke();ctx.fillStyle="#ff5d8f";ctx.fillRect(hx-s*.05,hy-s*.92,s*.1,s*.19);ctx.fillRect(hx-s*.1,hy-s*.87,s*.2,s*.09)}
   for(const h of HEARTS){const q=(now-h.t)/1400;if(q<0)continue;ctx.globalAlpha=1-q;ctx.fillStyle=h.c;heartPath(hx+h.dx,hy-s*1.2-q*40,9);ctx.fill();ctx.globalAlpha=1}
   ctx.restore();
@@ -1739,9 +1747,9 @@ function wallFree(s,a0,a1,z0,z1,skip){
     if(a0<pa1+.1&&a1>pa0-.1&&z0<pz1+.1&&z1>pz0-.1)return false}
   return true}
 // sceglie una volta per stanza dove mettere portellone e computer
-function shipLayout(){if(R.ship)return R.ship;const L={doors:[],screens:[]},maxS=Math.max(0,3-room.items.filter(d=>d[2].includes("wall")).length);
-  outer:for(const s of["L","R"])for(let a=N-2.2;a>.4;a-=.25)if(wallFree(s,a,a+1.7,0,3.4)){L.doors.push({s,a0:a,a1:a+1.7,z1:3.4});break outer}
-  for(const s of["R","L"])for(let a=.5;a<N-1.4&&L.screens.length<maxS;a+=.25){const z0=2.3,z1=3.4;if(!wallFree(s,a,a+1.3,z0,z1))continue;
+function shipLayout(){if(R.ship)return R.ship;const L={doors:[],screens:[]},wallN=room.items.filter(d=>d[2].includes("wall")).length,maxS=Math.max(0,3-wallN);
+  outer:for(const s of["R","L"])for(let a=N-2.2;a>.4;a-=.25)if(wallFree(s,a,a+1.7,0,3.4)){L.doors.push({s,a0:a,a1:a+1.7,z1:3.4});break outer}
+  for(const s of["R","L"])for(let a=.5;a<N-1.4&&L.screens.length<maxS;a+=.25){const z0=2.3,z1=3.4;if(!wallFree(s,a,a+1.3,z0,z1)||(wallN&&!wallFree(s,a,a+2.9,1.4,4.3)))continue;
     if(L.doors.some(d=>d.s===s&&a<d.a1+.2&&a+1.3>d.a0-.2)||L.screens.some(q=>q.s===s&&a<q.a1+.3&&a+1.3>q.a0-.3))continue;L.screens.push({s,a0:a,a1:a+1.3,z0,z1,k:L.screens.length})}
   return R.ship=L}
 function drawShipWalls(){
@@ -2513,6 +2521,454 @@ THEMES.push(
 );
 WORLDCAT.spazio={capsule:{n:"Capsula portaoggetti",b:(r,x,y)=>{const t=r.box(x,y,0,1.0,1.0,1.4,"#8d99ae");r.deco(t,{t:"fy",u0:.15,u1:.85,w0:.3,w1:.7,c:"#4cc9f0"});r.slot(t,"shelf",.5,.5)}}};
 }
+
+// ================= Più oggetti a tema, stanze nuove e due mondi nuovi (Castello, Pasticceria) =================
+{
+const crownM=(gem,s=1)=>[cyl(0,0,0,.12*s,.08*s,"#ffd60a",{top:"#e9c46a"}),...[0,1,2,3,4].map(i=>{const a=i/5*Math.PI*2;return sph(Math.cos(a)*.1*s,Math.sin(a)*.1*s,.11*s,.025*s,"#ffd60a")}),sph(0,.12*s,.05*s,.03*s,gem)];
+const crutchM=x=>[bx(x,0,0,.05,.05,1.15,"#adb5bd"),bx(x,0,.7,.05,.12,.04,"#6c757d"),bx(x,0,1.15,.07,.2,.05,"#3b3b4f")];
+const ambBody=[bx(0,0,.06,.42,.22,.2,"#ffffff",[FY("#e63946",.15,.45,.35,.65),FXd("#e63946",.3,.7,.35,.65)]),bx(.12,0,.26,.14,.2,.05,"#4361ee"),bx(-.06,0,.26,.04,.04,.03,"#e63946")];
+const ambWheels=[[-.12,-.11],[-.12,.11],[.12,-.11],[.12,.11]].map(([x,y])=>dsk(x,y,.06,.06,"#3b3b4f","y"));
+const violinBody=[bx(0,0,0,.2,.08,.36,"#9c6644",[FY("#3b2a26",.42,.58,.25,.5),FY("#6b4226",.1,.9,.9,.96)]),bx(0,0,.36,.04,.04,.24,"#3b2a26"),bx(0,0,.6,.05,.06,.05,"#3b2a26")];
+const violinBow=[bx(0,0,0,.52,.02,.02,"#6b4226"),bx(0,0,.03,.48,.01,.01,"#f1eee3")];
+const teslaBase=[cyl(0,0,0,.13,.08,"#3b3b4f"),cyl(0,0,.08,.05,.42,"#b08968"),...[.15,.25,.35].map(z=>cyl(0,0,.08+z,.065,.03,"#d4a017"))];
+const teslaSph=[sph(0,0,.08,.09,"#adb5bd"),sph(.06,.04,.14,.025,"#80ffdb")];
+const droneBody=[bx(0,0,.04,.24,.24,.08,"#f1f3f5",[TOP("#4cc9f0",.35,.35,.65,.65)]),sph(.12,0,.04,.035,"#f72585")];
+const droneProps=[[-.18,-.18],[.18,-.18],[-.18,.18],[.18,.18]].map(([x,y])=>cyl(x,y,.1,.08,.01,"#3b3b4f",{top:"#adb5bd"}));
+const scanBody=[bx(0,0,0,.12,.06,.22,"#3b3b4f",[FY("#4cc9f0",.15,.85,.55,.85)])];
+const scanLens=[cyl(0,0,0,.05,.05,"#adb5bd",{top:"#80ffdb"})];
+const teleTripod=[bx(-.12,0,0,.03,.03,.72,"#3b3b4f"),bx(.12,0,0,.03,.03,.72,"#3b3b4f"),bx(0,.12,0,.03,.03,.72,"#3b3b4f"),cyl(0,0,.72,.06,.05,"#3b3b4f")];
+const teleTube=[bx(0,0,0,.54,.13,.13,"#f1f3f5",[FY("#4361ee",0,.12,0,1),FY("#4361ee",.88,1,0,1)]),bx(.3,0,0,.07,.17,.17,"#3b3b4f")];
+const cakeBase=[cyl(0,0,0,.21,.12,"#ffc8dd",{top:"#ffffff"})];
+const cakeTop=[cyl(0,0,0,.15,.1,"#ffafcc",{top:"#ffffff"}),sph(0,0,.13,.045,"#e63946"),sph(.08,.05,.11,.025,"#e63946")];
+const mixBase=[bx(0,0,0,.3,.22,.06,"#ff8fab"),bx(-.1,0,.06,.08,.18,.42,"#ff8fab"),bx(.03,0,.42,.3,.18,.1,"#ff8fab")];
+const mixBowl=[cyl(.06,0,.06,.11,.16,"#ced4da",{r2:.14,top:"#fff3b0"})];
+const chocoBase=[cyl(0,0,0,.2,.06,"#adb5bd"),cyl(0,0,.06,.17,.08,"#6f4518",{r2:.13,top:"#7f5539"})];
+const chocoTower=[cyl(0,0,0,.04,.24,"#7f5539"),cyl(0,0,.24,.1,.04,"#6f4518",{top:"#7f5539"}),cyl(0,0,.12,.07,.03,"#6f4518")];
+const harpFrame=[bx(0,0,0,.1,.36,.06,"#ffd60a"),bx(0,-.15,.06,.07,.07,.58,"#ffd60a"),bx(0,.02,.6,.07,.36,.07,"#ffd60a"),bx(0,.16,.06,.06,.06,.5,"#e9c46a")];
+const harpStrings=[bx(0,0,0,.01,.26,.44,"#fff3b0",[FXd("#e9c46a",.1,.9,.1,.9)])];
+const saddleSeat=[bx(0,0,.1,.42,.28,.1,"#7f4f24",[TOP("#9c6644",.2,.2,.8,.8)]),bx(-.16,0,.2,.08,.26,.1,"#7f4f24"),bx(.16,0,.18,.06,.2,.08,"#7f4f24"),bx(0,0,0,.46,.3,.1,"#c08552")];
+const stirrups=[bx(-.06,0,0,.04,.04,.18,"#6c757d"),bx(.06,0,0,.04,.04,.18,"#6c757d"),bx(0,0,0,.18,.06,.03,"#adb5bd")];
+Object.assign(MODELS,{
+ // ospedale
+ crutch_l:()=>crutchM(0),crutch_r:()=>crutchM(0),crutches:()=>[...crutchM(-.08),...crutchM(.08)],
+ bloodbag:()=>[bx(0,0,0,.18,.06,.26,"#e63946",[FY("#ffffff",.2,.8,.62,.82)]),bx(0,0,.26,.04,.02,.05,"#adb5bd")],
+ bpcuff:()=>[bx(0,0,0,.3,.14,.06,"#264653"),sph(.2,.05,.04,.05,"#3b3b4f"),cyl(-.06,0,.06,.07,.03,"#ffffff",{top:"#adb5bd"})],
+ otoscope:()=>[cyl(0,0,0,.035,.2,"#3b3b4f"),cyl(0,0,.2,.05,.06,"#adb5bd",{r2:.02})],
+ cottonjar:()=>[cyl(0,0,0,.09,.2,"#e9f5f9",{top:"#adb5bd"}),sph(0,0,.12,.05,"#ffffff"),sph(.03,.02,.16,.04,"#ffffff")],
+ bandaid:()=>[bx(0,0,0,.24,.14,.08,"#ffd6a5",[FY("#e63946",.4,.6,.3,.7)])],
+ petri:()=>[cyl(0,0,0,.12,.03,"#e9f5f9",{top:"#ffccd5"}),cyl(.05,.04,.03,.11,.03,"#e9f5f9",{top:"#caffbf"})],
+ centrifuge:()=>[cyl(0,0,0,.18,.22,"#e9ecef",{top:"#457b9d"}),bx(.14,.1,.05,.06,.02,.08,"#52b788")],
+ pipette:()=>[bx(0,0,0,.04,.04,.3,"#ced4da"),bx(0,0,.3,.07,.07,.05,"#4361ee")],
+ labcoat:()=>foldM("#ffffff",3),gown:()=>foldM("#90e0ef",3),
+ amb_body:()=>ambBody,amb_wheels:()=>ambWheels,ambulance:()=>[...ambBody,...ambWheels],
+ balloon:()=>[cyl(0,0,0,.04,.04,"#adb5bd"),bx(0,0,.04,.01,.01,.46,"#adb5bd"),sph(0,0,.62,.14,"#ff5d8f")],
+ bunnydoc:()=>[sph(0,0,.12,.13,"#f8f9fa"),sph(0,0,.3,.1,"#f8f9fa"),bx(-.04,0,.38,.03,.04,.13,"#f8f9fa"),bx(.04,0,.38,.03,.04,.13,"#f8f9fa"),bx(0,.11,.12,.07,.01,.07,"#e63946"),sph(.03,.09,.32,.015,"#3b3b4f"),sph(-.03,.09,.32,.015,"#3b3b4f")],
+ defib:()=>[bx(0,0,0,.34,.2,.24,"#f4b400",[FY("#3b3b4f",.15,.85,.42,.85),FY("#52b788",.2,.35,.12,.3)])],
+ pillorganizer:()=>[bx(0,0,0,.36,.12,.05,"#ffffff",[TOP("#e63946",.05,.1,.25,.9),TOP("#4361ee",.3,.1,.5,.9),TOP("#52b788",.55,.1,.75,.9),TOP("#f4b400",.8,.1,.95,.9)])],
+ brochures:()=>[bx(0,0,0,.26,.2,.03,"#a2d2ff",[TOP("#4361ee",.1,.1,.9,.3)]),bx(.03,.02,.03,.26,.2,.03,"#caffbf",[TOP("#2a9d8f",.1,.1,.9,.3)])],
+ // villa
+ spider:()=>[bx(0,0,.02,.34,.02,.02,"#1d1b26"),bx(0,0,.02,.02,.34,.02,"#1d1b26"),bx(0,0,.02,.26,.26,.015,"#1d1b26"),sph(0,0,.07,.07,"#1d1b26"),sph(.04,.04,.1,.015,"#e63946"),sph(-.01,.05,.1,.015,"#e63946")],
+ winebottle:()=>[...bottleM("#2d3a1f",.32,.07,"#6a1b2a"),bx(0,.07,.08,.08,.01,.08,"#f1eee3")],
+ rat:()=>[sph(0,0,.08,.1,"#8d99ae"),sph(.1,0,.11,.065,"#8d99ae"),sph(.12,.04,.17,.03,"#ffafcc"),sph(.12,-.04,.17,.03,"#ffafcc"),bx(-.16,0,.03,.16,.02,.02,"#ffafcc"),sph(.17,0,.1,.015,"#3b2a26")],
+ mask:()=>[bx(0,0,0,.32,.04,.15,"#e9c46a",[FY("#1d1b26",.15,.4,.4,.72),FY("#1d1b26",.6,.85,.4,.72),FY("#9d0208",0,1,0,.12)]),bx(.12,0,.15,.02,.02,.22,"#6a1b2a")],
+ fan:()=>[bx(0,0,0,.32,.04,.18,"#ff006e",[FY("#ffd6e0",.08,.92,.2,.85)]),bx(0,0,-.04,.04,.03,.06,"#3b2a26")],
+ musicsheet:()=>[bx(0,0,0,.32,.24,.02,"#fffaf0",[TOP("#1d1b26",.1,.2,.9,.24),TOP("#1d1b26",.1,.45,.9,.49),TOP("#1d1b26",.1,.7,.9,.74)])],
+ dancingshoes:()=>[...shoeM(-.09,0,"#c9184a"),...shoeM(.09,.02,"#c9184a")],
+ violin_body:()=>violinBody,violin_bow:()=>violinBow,violin:()=>[...violinBody,...violinBow.map(p=>({...p,x:p.x+.05,y:p.y+.06,z:p.z+.2}))],
+ tesla_base:()=>teslaBase,tesla_sphere:()=>teslaSph,teslacoil:()=>[...teslaBase,...teslaSph.map(p=>({...p,z:p.z+.48}))],
+ flask:()=>[cyl(0,0,0,.12,.14,"#80ffdb",{r2:.04,top:"#c8fff4"}),cyl(0,0,.14,.035,.12,"#e9f5f9"),sph(.04,.02,.08,.025,"#ffffff"),sph(-.03,-.02,.05,.02,"#ffffff")],
+ brainjar:()=>[cyl(0,0,0,.12,.27,"#b7e4c7",{top:"#6c584c"}),sph(0,0,.13,.08,"#ffafcc"),sph(.04,.03,.16,.03,"#ffc8dd")],
+ bones:()=>[bx(0,0,0,.3,.05,.05,"#f1eee3"),sph(-.16,-.02,.025,.035,"#f1eee3"),sph(-.16,.03,.025,.035,"#f1eee3"),sph(.16,-.02,.025,.035,"#f1eee3"),sph(.16,.03,.025,.035,"#f1eee3")],
+ // astronave
+ wrench:()=>[bx(0,0,0,.34,.06,.03,"#adb5bd"),bx(.18,0,0,.09,.12,.03,"#adb5bd"),bx(-.16,0,0,.06,.08,.03,"#f72585")],
+ coolant:()=>[cyl(0,0,0,.1,.32,"#4cc9f0",{top:"#adb5bd"}),bx(0,.1,.1,.08,.01,.1,"#ffd60a")],
+ cablecoil:()=>[cyl(0,0,0,.16,.06,"#f72585",{top:"#3b3b4f"}),cyl(0,0,.06,.1,.01,"#f72585",{top:"#c9184a"})],
+ gauge:()=>frameM(.5,.5,"#adb5bd","#0b1d3a",[FR("#80ffdb",.15,.85,.45,.52),FR("#f72585",.47,.53,.2,.82),FR("#ffd60a",.2,.3,.15,.25)]),
+ tele_tripod:()=>teleTripod,tele_tube:()=>teleTube,telescope:()=>[...teleTripod,...teleTube.map(p=>({...p,z:p.z+.76}))],
+ meteorite:()=>[cyl(0,0,0,.1,.04,"#3b3b4f"),sph(0,0,.14,.12,"#6c584c"),sph(.05,.06,.2,.035,"#ffd60a"),sph(-.05,.04,.12,.025,"#ff9f1c")],
+ astrofig:()=>[cyl(0,0,0,.06,.03,"#3b3b4f"),bx(0,0,.03,.1,.07,.14,"#f1f3f5",[FY("#e63946",.2,.4,.6,.8)]),sph(0,0,.22,.06,"#f1f3f5"),dsk(.03,.04,.23,.035,"#1d3557","n")],
+ drinkpouch:()=>[bx(0,0,0,.15,.05,.22,"#90e0ef",[FY("#ffffff",.2,.8,.4,.7)]),bx(.04,0,.22,.02,.02,.1,"#f72585")],
+ nutripills:()=>[cyl(-.05,0,0,.06,.13,"#ffd60a",{top:"#ffffff"}),cyl(.07,.03,0,.06,.11,"#80ffdb",{top:"#ffffff"})],
+ magtray:()=>[bx(0,0,0,.38,.26,.03,"#adb5bd",[TOP("#ced4da",.05,.05,.45,.45),TOP("#ced4da",.55,.05,.95,.45),TOP("#ced4da",.05,.55,.95,.95)])],
+ scanner_body:()=>scanBody,scanner_lens:()=>scanLens,scanner:()=>[...scanBody,...scanLens.map(p=>({...p,z:p.z+.22}))],
+ medpouch:()=>[bx(0,0,0,.26,.12,.16,"#f1f3f5",[FY("#e63946",.4,.6,.3,.7),FY("#e63946",.3,.7,.42,.58)])],
+ logbook:()=>[bx(0,0,0,.3,.22,.05,"#264653",[TOP("#4cc9f0",.1,.1,.9,.25)])],
+ sleepingbag:()=>[bx(0,0,0,.42,.2,.17,"#f77f00",[FY("#ffd166",.45,.55,0,1)])],
+ drone_body:()=>droneBody,drone_props:()=>droneProps,drone:()=>[...droneBody,...droneProps],
+ // castello
+ crown_ring:()=>[cyl(0,0,0,.12,.08,"#ffd60a",{top:"#e9c46a"})],crown_gem:()=>[sph(0,0,.04,.045,"#e63946"),cyl(0,0,0,.05,.02,"#ffd60a")],crown:()=>crownM("#e63946"),tiara:()=>crownM("#f72585",.8),
+ scepter:()=>[bx(0,0,0,.03,.03,.5,"#ffd60a"),sph(0,0,.55,.06,"#9d4edd"),cyl(0,0,.45,.05,.04,"#ffd60a")],
+ goblet:()=>[cyl(0,0,0,.06,.02,"#ffd60a"),cyl(0,0,.02,.015,.1,"#ffd60a"),cyl(0,0,.12,.05,.1,"#ffd60a",{r2:.075,top:"#9d0208"})],
+ shield:()=>frameM(.5,.6,"#ffd60a","#4361ee",[FR("#ffffff",.42,.58,.12,.88),FR("#ffffff",.15,.85,.45,.6)]),
+ banner:()=>frameM(.42,.9,"#ffd60a","#9d0208",[FR("#ffd60a",.25,.75,.5,.72)]),
+ tapestry:()=>frameM(.9,.68,"#6a4c93","#e9c46a",[FR("#2a9d8f",.08,.42,.12,.62),FR("#9d0208",.55,.92,.3,.82),FR("#ffffff",.6,.8,.1,.25)]),
+ roastchicken:()=>[cyl(0,0,0,.2,.03,"#f1faee",{top:"#ffffff"}),sph(0,0,.12,.11,"#d47a2a"),sph(.1,.06,.1,.045,"#d47a2a"),bx(.15,.08,.12,.06,.02,.02,"#ffffff")],
+ cheesewheel:()=>[cyl(0,0,0,.15,.1,"#ffd166",{top:"#ffe8a3"}),sph(.04,.03,.1,.02,"#e9c46a")],
+ breadloaf:()=>[bx(0,0,0,.32,.16,.12,"#d4a373",[TOP("#b5835a",.2,.3,.3,.7),TOP("#b5835a",.5,.3,.6,.7)])],
+ basket_empty:()=>[cyl(0,0,0,.16,.12,"#bc6c25",{top:"#6b4226"}),bx(0,0,.12,.03,.3,.03,"#bc6c25")],
+ apples:()=>[sph(-.06,0,.05,.06,"#e63946"),sph(.06,.02,.05,.06,"#e63946"),sph(0,.07,.09,.055,"#90be6d")],
+ applebasket:()=>[cyl(0,0,0,.16,.12,"#bc6c25",{top:"#6b4226"}),sph(-.06,0,.15,.06,"#e63946"),sph(.06,.02,.15,.06,"#e63946"),sph(0,.07,.19,.055,"#90be6d")],
+ woodspoon:()=>[bx(0,0,0,.34,.05,.02,"#c08552"),cyl(.2,0,0,.06,.03,"#c08552")],
+ wand_stick:()=>[bx(0,0,0,.32,.025,.025,"#6b4226")],wand_star:()=>[sph(0,0,.03,.04,"#ffd60a"),bx(0,0,.03,.1,.02,.02,"#ffd60a"),bx(0,0,0,.02,.02,.1,"#ffd60a")],
+ wand:()=>[bx(0,0,0,.32,.025,.025,"#6b4226"),sph(.18,0,0,.04,"#ffd60a"),bx(.18,0,0,.1,.02,.02,"#ffd60a")],
+ owl:()=>[cyl(0,0,0,.08,.04,"#6b4226"),sph(0,0,.15,.12,"#bc8a5f"),sph(0,0,.3,.1,"#bc8a5f"),sph(.05,.08,.32,.03,"#ffffff"),sph(-.05,.08,.32,.03,"#ffffff"),sph(.05,.1,.32,.015,"#1d1b26"),sph(-.05,.1,.32,.015,"#1d1b26"),bx(0,.1,.27,.03,.02,.04,"#f4a261")],
+ harp_frame:()=>harpFrame,harp_strings:()=>harpStrings,harp:()=>[...harpFrame,...harpStrings.map(p=>({...p,y:p.y+.01,z:p.z+.12}))],
+ unicorn:()=>[sph(0,0,.12,.13,"#ffffff"),sph(.12,0,.26,.09,"#ffffff"),cyl(.15,0,.33,.025,.12,"#ffd60a",{r2:.004}),bx(.04,0,.28,.06,.04,.12,"#ffafcc"),sph(.18,.06,.27,.012,"#3b3b4f")],
+ saddle_seat:()=>saddleSeat,stirrups:()=>stirrups,saddle:()=>[...saddleSeat,...stirrups.map(p=>({...p,y:p.y+.18,z:p.z+.02}))],
+ horseshoe:()=>[bx(0,0,0,.2,.045,.03,"#adb5bd"),bx(-.09,.08,0,.035,.17,.03,"#adb5bd"),bx(.09,.08,0,.035,.17,.03,"#adb5bd")],
+ horsebrush:()=>[bx(0,0,0,.24,.1,.06,"#9c6644",[TOP("#3b2a26",.1,.2,.9,.8)])],
+ carrots:()=>[0,1,2].flatMap(i=>[bx(-.08+i*.08,0,0,.05,.26,.05,"#f77f00"),bx(-.08+i*.08,-.15,0,.04,.07,.06,"#52b788")]),
+ rope:()=>[cyl(0,0,0,.15,.08,"#d4a373",{top:"#bc8a5f"}),cyl(0,0,.08,.09,.01,"#d4a373",{top:"#bc8a5f"})],
+ // pasticceria
+ cake_base:()=>cakeBase,cake_top:()=>cakeTop,cake:()=>[...cakeBase,...cakeTop.map(p=>({...p,z:p.z+.12}))],
+ cupcake:()=>[cyl(0,0,0,.08,.1,"#f4a261",{r2:.1,top:"#ffc8dd"}),sph(0,0,.15,.08,"#ffc8dd"),sph(0,0,.24,.025,"#e63946")],
+ macarons:()=>[["#ffafcc",-.1],["#b5e48c",.08]].flatMap(([c,x])=>[cyl(x,0,0,.08,.04,c),cyl(x,0,.04,.075,.015,"#ffffff"),cyl(x,0,.055,.08,.04,c)]),
+ donut:()=>[cyl(0,0,0,.12,.06,"#d4a373",{top:"#ff8fab"}),cyl(0,0,.06,.035,.005,"#7f5539"),sph(.06,.03,.065,.012,"#4cc9f0"),sph(-.05,.05,.065,.012,"#ffd60a")],
+ register:()=>[bx(0,0,0,.36,.32,.14,"#ff8fab",[FY("#ffffff",.15,.85,.3,.7)]),bx(0,-.05,.14,.26,.16,.14,"#ff8fab",[FY("#3b3b4f",.1,.9,.3,.82)])],
+ mixer_base:()=>mixBase,mixer_bowl:()=>mixBowl,mixer:()=>[...mixBase,...mixBowl],
+ mixbowl:()=>[cyl(0,0,0,.15,.12,"#ced4da",{r2:.19,top:"#fff3b0"})],
+ whisk:()=>[bx(0,0,0,.18,.04,.04,"#c08552"),sph(.15,0,.02,.06,"#e9ecef")],
+ flourbag:()=>[bx(0,0,0,.3,.2,.36,"#f1ece2",[FY("#d4a373",.2,.8,.4,.6)])],
+ sugarjar:()=>[cyl(0,0,0,.1,.22,"#e9f5f9",{top:"#ffafcc"}),sph(0,0,.26,.03,"#ffafcc")],
+ teacup:()=>[cyl(0,0,0,.12,.015,"#ffffff"),cyl(0,0,.015,.06,.07,"#ffffff",{r2:.08,top:"#c08552"}),bx(.09,0,.04,.03,.02,.04,"#ffffff")],
+ tieredstand:()=>[cyl(0,0,0,.18,.02,"#ffffff"),cyl(0,0,.02,.015,.3,"#ffd60a"),cyl(0,0,.16,.13,.015,"#ffffff"),cyl(0,0,.3,.08,.015,"#ffffff"),sph(.08,0,.06,.035,"#ffafcc"),sph(-.04,.05,.2,.03,"#b5e48c"),sph(0,0,.34,.03,"#e63946")],
+ cakebox:()=>[bx(0,0,0,.34,.34,.22,"#ffc8dd",[FY("#ff5d8f",.45,.55,0,1),FXd("#ff5d8f",.45,.55,0,1),TOP("#ff5d8f",.45,0,.55,1)])],
+ chocobar:()=>[bx(0,0,0,.3,.14,.03,"#6f4518",[TOP("#7f5539",.05,.08,.45,.45),TOP("#7f5539",.55,.08,.95,.45),TOP("#7f5539",.05,.55,.45,.92),TOP("#7f5539",.55,.55,.95,.92)]),bx(-.08,0,.03,.14,.15,.01,"#ffd60a")],
+ sprinkles:()=>[cyl(0,0,0,.07,.16,"#e9f5f9",{top:"#ff006e"}),sph(0,0,.06,.03,"#ffd60a"),sph(.02,.02,.1,.025,"#4cc9f0")],
+ ribbons:()=>[cyl(0,0,0,.1,.06,"#ff5d8f",{top:"#ffafcc"}),cyl(.15,.05,0,.08,.06,"#4cc9f0",{top:"#a2d2ff"})],
+ choco_base:()=>chocoBase,choco_tower:()=>chocoTower,chocofountain:()=>[...chocoBase,...chocoTower.map(p=>({...p,z:p.z+.14}))],
+ pralines:()=>[bx(0,0,0,.34,.24,.06,"#ffd60a",[TOP("#6f4518",.08,.12,.3,.45),TOP("#7f5539",.38,.12,.6,.45),TOP("#6f4518",.68,.12,.92,.45),TOP("#ff8fab",.08,.55,.3,.88),TOP("#6f4518",.38,.55,.6,.88),TOP("#7f5539",.68,.55,.92,.88)])],
+ cocoasack:()=>[bx(0,0,0,.34,.24,.36,"#bc8a5f",[FY("#6f4518",.25,.75,.4,.6)]),sph(0,0,.38,.06,"#6f4518")],
+ molds:()=>[bx(0,0,0,.32,.2,.04,"#ff8fab",[TOP("#c9184a",.1,.15,.3,.85),TOP("#c9184a",.4,.15,.6,.85),TOP("#c9184a",.7,.15,.9,.85)])],
+ napkins:()=>foldM("#ffafcc",3,.28,.28),
+ menuboard:()=>frameM(.72,.5,"#c08552","#2b2d42",[FR("#ffffff",.1,.6,.72,.8),FR("#ffafcc",.1,.8,.52,.58),FR("#a2d2ff",.1,.7,.32,.38),FR("#ffd60a",.1,.5,.14,.2)])
+});
+["gauge","shield","banner","tapestry","menuboard"].forEach(k=>WALLM.add(k));
+Object.assign(SIZE,{crutch_l:40,crutch_r:40,crutches:46,bloodbag:26,bpcuff:30,otoscope:22,cottonjar:26,bandaid:26,petri:26,centrifuge:34,pipette:22,labcoat:32,gown:32,amb_body:34,amb_wheels:28,ambulance:36,
+  balloon:34,bunnydoc:30,defib:32,pillorganizer:28,brochures:28,spider:30,winebottle:28,rat:28,mask:30,fan:28,musicsheet:28,dancingshoes:30,violin_body:34,violin_bow:30,violin:38,tesla_base:34,tesla_sphere:24,
+  teslacoil:38,flask:28,brainjar:30,bones:28,wrench:28,coolant:30,cablecoil:30,gauge:46,tele_tripod:40,tele_tube:36,telescope:48,meteorite:28,astrofig:26,drinkpouch:24,nutripills:24,magtray:32,scanner_body:22,
+  scanner_lens:20,scanner:26,medpouch:28,logbook:28,sleepingbag:34,drone_body:30,drone_props:30,drone:34,crown_ring:26,crown_gem:20,crown:30,tiara:26,scepter:30,goblet:24,shield:48,banner:46,tapestry:56,
+  roastchicken:32,cheesewheel:28,breadloaf:30,basket_empty:30,apples:26,applebasket:32,woodspoon:28,wand_stick:26,wand_star:20,wand:30,owl:30,harp_frame:40,harp_strings:30,harp:44,unicorn:30,
+  saddle_seat:38,stirrups:24,saddle:40,horseshoe:26,horsebrush:26,carrots:28,rope:30,cake_base:30,cake_top:28,cake:34,cupcake:26,macarons:28,donut:26,register:34,mixer_base:34,mixer_bowl:28,mixer:38,mixbowl:30,
+  whisk:24,flourbag:34,sugarjar:26,teacup:24,tieredstand:32,cakebox:32,chocobar:26,sprinkles:24,ribbons:28,choco_base:32,choco_tower:26,chocofountain:36,pralines:28,cocoasack:34,molds:28,napkins:26,menuboard:52});
+
+// --- oggetti più a tema nelle stanze già esistenti ---
+const swap=(roomName,key,item)=>{const r=ROOMS.find(q=>q.name===roomName);if(!r)return;const k=r.items.findIndex(d=>d[0]===key);if(k>=0)r.items[k]=item};
+swap("L'accettazione","magazines",I("brochures","Opuscoli informativi",["table","reception"]));
+swap("La stanza di degenza","fruitbowl",I("bpcuff","Misuratore di pressione",["nightstand","cabinet"]));
+swap("L'ambulatorio","towels",I("otoscope","Otoscopio",["desk","cabinet","exambed"]));
+swap("L'ambulatorio","cushion",I("gown","Camice del paziente",["exambed","cabinet"]));
+swap("La farmacia","plant",I("pillorganizer","Portapillole",["counter"]));
+swap("La cucina abbandonata","bread",I("rat","Ratto impagliato",["table","shelf","counter"]));
+swap("La cucina abbandonata","cookiejar",I("winebottle","Bottiglia polverosa",["pantry","shelf"]));
+swap("L'ingresso della villa","hat",I("mask","Maschera",["console","stand"]));
+swap("La biblioteca","painting",I("musicsheet","Spartito antico",["desk","sidetable"]));
+swap("La mensa","plates",I("magtray","Vassoio magnetico",["shelf","table"]));
+swap("La mensa","cups",I("drinkpouch","Bevanda con cannuccia",["shelf","table","counter"]));
+swap("La mensa","bowls",I("nutripills","Pillole nutritive",["shelf","table"]));
+swap("Gli alloggi","books",I("logbook","Diario di bordo",["shelf","table"]));
+swap("Gli alloggi","towels",I("sleepingbag","Sacco a pelo",["locker","bed"]));
+swap("La plancia","mug",I("logbook","Diario di bordo",["console","shelf"]));
+
+const H=n=>HOUSES.findIndex(h=>h.name===n);
+const stretcher=(r,x,y)=>{const t=r.box(x,y,.85,1.0,2.4,.16,"#e9ecef");r.box(x+.05,y+.1,1.01,.9,2.2,.1,"#90e0ef");[[0,0],[.9,0],[0,2.3],[.9,2.3]].forEach(([a,b])=>r.box(x+a,y+b,0,.1,.1,.85,"#adb5bd"));r.slot(t,"stretcher",.5,.5);return t};
+const barrel=(r,x,y)=>{const b=r.box(x,y,0,.95,.95,1.1,"#7f4f24");[.2,.8].forEach(w=>{r.deco(b,{t:"fy",u0:0,u1:1,w0:w-.05,w1:w+.05,c:"#3b2a26"});r.deco(b,{t:"fx",v0:0,v1:1,w0:w-.05,w1:w+.05,c:"#3b2a26"})});r.slot(b,"barrel",.5,.5);return b};
+const hay=(r,x,y)=>{const b=r.box(x,y,0,1.4,.95,.85,"#e9c46a");[.3,.7].forEach(u=>r.deco(b,{t:"fy",u0:u-.03,u1:u+.03,w0:0,w1:1,c:"#bc8a5f"}));r.slot(b,"hay",.5,.5);return b};
+const throne=(r,x)=>{r.box(x,0,0,1.4,.35,3.0,"#ffd60a");const s=r.box(x,.35,0,1.4,1.0,.9,"#9d0208");r.box(x,.35,.9,.2,1.0,.5,"#ffd60a");r.box(x+1.2,.35,.9,.2,1.0,.5,"#ffd60a");r.slot(s,"throne",.5,.5);return s};
+const oven=(r,x,tag)=>{const o=r.box(x,0,0,1.5,1.0,2.2,"#adb5bd");r.deco(o,{t:"fy",u0:.15,u1:.85,w0:.15,w1:.55,c:"#f77f00"});r.deco(o,{t:"fy",u0:.15,u1:.85,w0:.65,w1:.75,c:"#3b3b4f"});r.tag(tag,o);return o};
+const hearth=(r,x)=>{const m=r.box(x,0,0,2.4,1.0,2.4,"#8d7b68");r.deco(m,{t:"fy",u0:.2,u1:.8,w0:.05,w1:.65,c:"#2b1d1a"});r.deco(m,{t:"fy",u0:.3,u1:.7,w0:.08,w1:.3,c:"#f77f00"});r.tag("hearth",m);
+  const t=r.box(x-.1,0,2.4,2.6,1.1,.15,"#6c584c");[.2,.5,.8].forEach(u=>r.slot(t,"hearth",u,.5));return m};
+const canopy=(r,x,y,w,d,c)=>{const b=r.bed(x,y,w,d,c);r.slot(b.pillow,"bed",.5,.5);r.bedCovers(b,1,42);[[x,y],[x+w-.12,y],[x,y+d-.12],[x+w-.12,y+d-.12]].forEach(([a,q])=>r.box(a,q,0,.12,.12,3.4,"#ffd60a"));r.box(x,y,3.4,w,d,.2,"#ffafcc");return b};
+
+// ---------- 3 stanze in più per ogni mondo esistente ----------
+let B=ROOMS.length;
+const OS=H("Ospedale San Giorgio"),VI=H("Villa Corvi"),SP=H("La Stella Polare");
+ROOMS.push(
+{w:"ospedale",h:OS,name:"La pediatria",N:9,wall:["#fff0f6","#ffe3ef"],wp:"dots",floor:"#ffe8cc",fp:"checker",
+ cartons:[[3.6,3.2],[5.2,5.2],[3.8,7.0]],
+ items:[I("bunnydoc","Coniglietto dottore",["bed","shelf","chest"]),I("ambulance","Ambulanza giocattolo",["chest","shelf","floor"]),I("balloon","Palloncino",["nightstand","table","bed"]),
+  I("crayons","Pastelli",["table","shelf"]),I("books","Libri di favole",["shelf","nightstand"]),I("blocks","Cubi",["floor","chest"]),I("nightlight","Lucina",["nightstand","shelf"]),I("gown","Pigiamino",["bedin","chest"]),
+  I("drawing","Disegno",["wall"]),I("star","Stellina",["wall"]),I("thermometer","Termometro",["nightstand","shelf"]),I("teddy","Orsetto",["bed","chest"]),I("musicbox","Carillon",["shelf","nightstand"])],
+ build(r){r.window("R",3.6,5.8,2.2,3.9);
+  const b1=r.bed(0,.6,3.0,1.6,"#a2d2ff");r.slot(b1.pillow,"bed",.5,.5);r.bedCovers(b1,1,40);const b2=r.bed(0,4.6,3.0,1.6,"#ffafcc");r.slot(b2.pillow,"bed",.5,.5);r.bedCovers(b2,1,40);
+  const ns=r.box(0,2.6,0,.95,.95,1.1,"#ffffff");r.slot(ns,"nightstand",.5,.5);
+  const tc=r.box(5.8,6.8,0,1.6,1.0,1.0,"#bde0fe");r.slot(tc,"chest",.5,.5);
+  const tb=r.table(4.4,3.6,1.6,1.2,1.2,"#ffd166");r.slot(tb,"table",.5,.5);
+  const sh=r.shelfR(.6,3.0,2.4,"#ffafcc");row(r,sh,"shelf",[.2,.5,.8],.5);r.rug(3.4,1.6,2.6,2.6,"#caffbf",true)}},
+{w:"ospedale",h:OS,name:"Il pronto soccorso",N:9,wall:["#e9f5f2","#d8ede8"],wp:"tile",floor:"#d7e3e0",fp:"tile",
+ cartons:[[3.6,3.4],[5.4,5.6],[3.0,7.0]],
+ items:[I("defib","Defibrillatore",["rosso","cabinet"]),I("crutches","Stampelle",["floor"]),I("bloodbag","Sacca di sangue",["fridgein"]),I("bloodbag","Sacca di sangue",["fridgein"]),
+  I("bandaid","Cerotti",["cabinet","counter"]),I("cottonjar","Cotone",["counter","cabinet"]),I("bpcuff","Misuratore di pressione",["counter","rosso","stretcher"]),I("oxygen","Bombola d'ossigeno",["floor"]),
+  I("medkit","Kit di emergenza",["rosso","cabinet"]),I("clipboard","Cartella del triage",["counter","stretcher"]),I("sanitizer","Gel igienizzante",["counter"]),I("clock","Orologio",["wall"]),I("xray","Lastra",["wall"])],
+ build(r){stretcher(r,0,.8);stretcher(r,0,4.4);
+  const rt=r.box(5.6,.3,1.2,2.0,1.0,.1,"#e63946");[[0,0],[1.9,0],[0,.9],[1.9,.9]].forEach(([a,b])=>r.box(5.6+a,.3+b,0,.1,.1,1.2,"#adb5bd"));r.box(5.6,.3,.4,2.0,1.0,.06,"#e63946");[.25,.75].forEach(u=>r.slot(rt,"rosso",u,.5));
+  r.cabinetR({x:3.6,w:1.3,d:1.1,h:3.4,c:"#f8f9fa",inner:"#ffe3e3",shelves:[1.3,2.4],doors:[{hinge:"L"}],kind:"fridgein",cap:34,n:2,label:"il frigo dell'emoteca",fridge:true});
+  const ct=r.counterR(1.4,2.0,1.8,"#90e0ef","#ffffff");row(r,ct,"counter",[.2,.5,.8],.5);
+  const cb=r.box(7.6,2.0,0,1.0,1.4,1.3,"#dee2e6");col(r,cb,"cabinet",.5,[.3,.7])}},
+{w:"ospedale",h:OS,name:"Il laboratorio analisi",N:9,wall:["#eef2ff","#e0e7ff"],wp:"grid",floor:"#e5e7eb",fp:"tile",
+ cartons:[[3.4,3.4],[5.2,5.4],[2.8,6.8]],
+ items:[I("microscope","Microscopio",["bench"]),I("testtubes","Provette",["bench","rack"]),I("testtubes","Provette",["bench","rack"]),I("petri","Piastre di coltura",["bench","fridgein"]),I("petri","Piastre di coltura",["bench","fridgein"]),
+  I("centrifuge","Centrifuga",["bench"]),I("pipette","Pipetta",["bench","rack"]),I("bloodbag","Campioni di sangue",["fridgein"]),I("labcoat","Camice da laboratorio",["rack","bench"]),I("glovebox","Guanti",["bench","rack"]),
+  I("sanitizer","Gel igienizzante",["bench"]),I("clipboard","Protocollo",["bench"]),I("medchart","Tabella dei valori",["wall"])],
+ build(r){const b1=r.table(1.0,.15,3.4,1.2,1.9,"#e9ecef");row(r,b1,"bench",[.15,.4,.65,.9],.5);
+  const rk=r.bookcaseL(2.2,2.2,[.3,1.5,2.7],"#ced4da",3.9);rk.forEach(p=>[.28,.72].forEach(v=>r.slot(p,"rack",.5,v)));
+  r.cabinetR({x:5.0,w:1.3,d:1.1,h:3.6,c:"#f8f9fa",inner:"#dff0f8",shelves:[1.4,2.5],doors:[{hinge:"L"}],kind:"fridgein",cap:34,n:2,label:"il frigo dei campioni",fridge:true});
+  const cf=r.box(6.8,.3,0,1.2,1.0,1.4,"#e9ecef");r.deco(cf,{t:"fy",u0:.2,u1:.8,w0:.55,w1:.85,c:"#1b263b"});r.tag("centri",cf);
+  const b2=r.table(4.0,4.2,2.6,1.2,1.9,"#e9ecef");row(r,b2,"bench",[.2,.5,.8],.5);r.window("L",5.6,7.6,2.2,3.8)}},
+{w:"horror",h:VI,name:"La cantina",N:9,wall:["#6a6155","#5c5449"],wp:"plain",floor:"#5a4f45",fp:"tile",cur:"#3a2a1a",cursed:["spider"],
+ cartons:[[3.6,3.6],[5.4,5.6],[3.2,7.0]],
+ items:[I("winebottle","Bottiglia",["rack","barrel"]),I("winebottle","Bottiglia",["rack","barrel"]),I("winebottle","Bottiglia",["rack","barrel"]),I("spider","Ragno maledetto",["barrel"]),
+  I("rat","Ratto impagliato",["floor","table","barrel"]),I("lantern","Lanterna",["table","floor","barrel"]),I("candle","Candela",["table","barrel"]),I("weirdjar","Barattolo strano",["rack","table"]),
+  I("cheesewheel","Forma di formaggio",["table","rack"]),I("key","Chiave della cantina",["table"]),I("webs","Ragnatela",["wall"]),I("candelabra","Candelabro",["table"])],
+ build(r){barrel(r,0,2.2);barrel(r,0,3.3);barrel(r,0,4.4);barrel(r,1.1,0);
+  const rk=r.bookcaseR(2.6,2.4,[.3,1.3,2.3],"#5e3b23",3.2);rk.forEach(p=>[.25,.5,.75].forEach(u=>r.slot(p,"rack",u,.5)));
+  const cr=r.cabinetR({x:5.6,w:1.6,d:.9,h:2.4,c:"#4a2c2a",inner:"#2b1d1a",shelves:[1.2],doors:[{hinge:"L",len:.8},{hinge:"R",len:.8}],kind:"rack",cap:36,n:2,label:"la vecchia credenza"});r.tag("credenza",cr.op);
+  const tb=r.table(3.4,3.8,1.8,1.3,1.6,"#5e3b23");row(r,tb,"table",[.3,.7],.5);r.window("R",7.4,8.4,3.0,3.8)}},
+{w:"horror",h:VI,name:"La sala da ballo",N:9,wall:["#7a5a7e","#6b4d6f"],wp:"stripe",floor:"#6b4a3a",fp:"checker",cur:"#6a1b2a",cursed:["mask"],
+ cartons:[[3.0,3.6],[5.0,5.8],[2.4,7.0]],
+ items:[I("mask","Maschera stregata",["piano"]),I("fan","Ventaglio",["sidetable","piano"]),I("musicsheet","Spartito",["piano","sidetable"]),I("dancingshoes","Scarpette da ballo",["floor"]),
+  I("candelabra","Candelabro",["piano","sidetable"]),I("goblet","Calice",["sidetable"]),I("vase","Rose",["sidetable","piano"]),I("portrait","Ritratto della ballerina",["wall"]),I("mirror","Specchio",["wall"]),
+  I("violin","Violino",["piano","sidetable","floor"]),I("webs","Ragnatela",["wall"])],
+ build(r){const pn=r.box(.6,0,0,2.4,1.2,1.4,"#1d1b26");r.deco(pn,{t:"fy",u0:.05,u1:.95,w0:.6,w1:.75,c:"#f1eee3"});[.25,.75].forEach(u=>r.slot(pn,"piano",u,.5));r.chair(1.4,1.6,"#6a1b2a");
+  r.box(4.4,4.4,4.0,.1,.1,1.0,"#d4a017");const ch=r.box(3.9,3.9,3.6,1.1,1.1,.35,"#ffd60a");r.deco(ch,{t:"rect",u0:.15,v0:.15,u1:.85,v1:.85,c:"#fff3b0"});
+  const s1=r.box(0,3.2,0,.9,.9,1.1,"#4a2c2a");r.slot(s1,"sidetable",.5,.5);const s2=r.box(6.8,.3,0,.9,.9,1.1,"#4a2c2a");r.slot(s2,"sidetable",.5,.5);
+  const bn=r.box(0,5.4,0,.9,2.4,.8,"#6a1b2a");col(r,bn,"bench",.5,[.3,.7]);r.rug(2.8,2.8,3.6,3.6,"#3c1642",true);r.window("R",4.2,6.0,2.2,4.0)}},
+{w:"horror",h:VI,name:"Il laboratorio del dottore",N:9,wall:["#5c6b62","#4f5d55"],wp:"tile",floor:"#4e5a53",fp:"checker",cur:"#2d3a1f",cursed:["brainjar"],
+ cartons:[[3.6,3.2],[5.4,5.6],[3.0,7.0]],
+ items:[I("flask","Ampolla fumante",["bench","shelf"]),I("flask","Ampolla fumante",["bench","shelf"]),I("brainjar","Cervello in barattolo",["shelf"]),I("teslacoil","Bobina elettrica",["bench","floor"]),
+  I("bones","Ossa",["slab","shelf"]),I("skull","Teschio",["shelf","bench"]),I("potion","Pozione",["shelf"]),I("oldbook","Quaderno del dottore",["bench","shelf"]),I("candle","Candela",["bench","shelf"]),
+  I("weirdjar","Barattolo con gli occhi",["shelf"]),I("webs","Ragnatela",["wall"]),I("crow","Corvo",["shelf","bench"])],
+ build(r){const b1=r.table(1.0,.15,3.2,1.2,1.8,"#5e3b23");row(r,b1,"bench",[.2,.5,.8],.5);
+  const sh=r.bookcaseL(2.0,2.4,[.3,1.5,2.7],"#4a2c2a",3.9);sh.forEach(p=>[.28,.72].forEach(v=>r.slot(p,"shelf",.5,v)));
+  const sl=r.box(3.4,3.8,0,2.4,1.1,1.1,"#6c757d");r.box(3.3,3.7,1.1,2.6,1.3,.1,"#adb5bd");r.slot(r.boxes[r.boxes.length-1],"slab",.5,.5);
+  r.window("R",5.6,7.4,2.2,3.8)}},
+{w:"spazio",h:SP,name:"La sala macchine",N:9,wall:["#b8c0cc","#a7b0bd"],wp:"plain",floor:"#7d8597",fp:"tile",
+ cartons:[[1.8,5.4],[5.6,5.6],[3.4,7.2]],
+ items:[I("wrench","Chiave inglese",["bench","rack"]),I("coolant","Refrigerante",["rack","floor"]),I("coolant","Refrigerante",["rack","floor"]),I("cablecoil","Rotolo di cavi",["rack","floor","bench"]),
+  I("powercell","Cella di energia",["rack","bench"]),I("powercell","Cella di energia",["rack","bench"]),I("toolbox","Cassetta attrezzi",["bench","rack"]),I("gauge","Manometro",["wall"]),I("spacehelmet","Casco",["rack","bench"]),
+  I("tablet","Tablet diagnostico",["bench"]),I("drone","Drone di riparazione",["bench","rack","floor"])],
+ build(r){const rb=r.box(3.0,3.0,0,1.8,1.8,.4,"#3b3b4f");const core=r.box(3.4,3.4,.4,1.0,1.0,2.6,"#4cc9f0");r.deco(core,{t:"fy",u0:.1,u1:.9,w0:.1,w1:.9,c:"#80ffdb"});r.box(3.2,3.2,3.0,1.4,1.4,.3,"#3b3b4f");r.tag("reactor",rb);
+  const wb=r.table(5.2,.2,2.8,1.1,1.8,"#8d99ae");row(r,wb,"bench",[.2,.5,.8],.5);const wb2=r.table(0,3.8,1.2,2.6,1.8,"#8d99ae");col(r,wb2,"bench",.5,[.2,.5,.8]);
+  const rk=r.bookcaseL(.6,2.4,[.3,1.5,2.7],"#5c677d",3.9);rk.forEach(p=>[.28,.72].forEach(v=>r.slot(p,"rack",.5,v)))}},
+{w:"spazio",h:SP,name:"L'infermeria di bordo",N:9,wall:["#e6f2f5","#d5e8ec"],wp:"tile",floor:"#9fb3c8",fp:"tile",
+ cartons:[[3.6,3.4],[5.4,5.6],[3.0,7.0]],
+ items:[I("scanner","Scanner medico",["counter","pod"]),I("medpouch","Kit medico",["medlock","counter"]),I("medpouch","Kit medico",["medlock","counter"]),I("nutripills","Pillole",["medlock"]),
+  I("drinkpouch","Integratore",["counter"]),I("tablet","Tablet",["counter","pod"]),I("alienplush","Alieno di peluche",["pod"]),I("bandaid","Cerotti",["medlock","counter"]),I("thermometer","Termometro",["counter"]),
+  I("earthphoto","Foto della Terra",["wall"]),I("pillorganizer","Portapillole",["counter","medlock"])],
+ build(r){const pd=r.box(0,3.6,0,1.3,2.8,.9,"#5c677d");const pad=r.box(0,3.7,.9,1.2,2.6,.15,"#90e0ef");r.box(0,3.6,1.05,.25,2.8,1.4,"#d7f3ff");col(r,pad,"pod",.6,[.3,.7]);
+  const ml=r.cabinetR({x:.6,w:1.8,d:.9,h:2.6,c:"#f1f3f5",inner:"#dfe7ef",shelves:[1.2],doors:[{hinge:"L",len:.9},{hinge:"R",len:.9}],kind:"medlock",cap:36,n:2,label:"l'armadietto dei farmaci"});r.tag("medlock",ml.op);
+  const ct=r.counterR(3.0,2.6,1.8,"#5c677d","#ced4da");row(r,ct,"counter",[.2,.5,.8],.5);r.window("R",6.2,8.2,2.2,3.8)}},
+{w:"spazio",h:SP,name:"L'osservatorio",N:9,wall:["#3a3f7a","#31366b"],wp:"plain",floor:"#5c5f86",fp:"tile",
+ cartons:[[3.6,3.6],[5.6,5.4],[3.2,7.0]],
+ items:[I("telescope","Telescopio",["floor"]),I("planetglobe","Globo celeste",["desk","shelf"]),I("meteorite","Meteorite",["shelf","desk"]),I("logbook","Diario delle stelle",["desk"]),
+  I("starmap","Mappa stellare",["wall"]),I("astrofig","Statuina dell'astronauta",["shelf","desk"]),I("mug","Tazza",["desk"]),I("headset","Cuffie",["desk","chair"]),I("rocketmodel","Razzo",["shelf"]),
+  I("alienplush","Alieno di peluche",["chair","shelf"])],
+ build(r){r.window("L",1.2,3.8,1.8,4.2);r.window("R",1.2,4.8,1.8,4.2);
+  const dk=r.table(5.6,4.2,2.2,1.2,1.8,"#8d99ae");row(r,dk,"desk",[.2,.5,.8],.5);const ch=r.armchair(5.8,5.6,"#4361ee");r.slot(ch,"chair",.5,.5);
+  const sh=r.bookcaseL(5.6,2.4,[.3,1.5,2.7],"#5c677d",3.9);sh.forEach(p=>[.28,.72].forEach(v=>r.slot(p,"shelf",.5,v)));r.rug(2.4,2.4,3.2,3.2,"#1b1f4b",true)}}
+);
+Object.assign(PUZZLES,{
+ [B]:{clues:{books:"Sull'ultima pagina, la ninna nanna del reparto: Sol – Mi – Sol – Mi."},
+  list:[{type:"melody",title:"Il carillon della pediatria",desc:"Suona la ninna nanna per far addormentare i bambini.",keys:["Do","Re","Mi","Fa","Sol","La"],answer:["Sol","Mi","Sol","Mi"],item:"musicbox",needPlace:"Prima sistema il carillon.",hint:"I libri di favole finiscono con una canzone.",done:"I bambini si addormentano sorridendo."}]},
+ [B+1]:{clues:{clipboard:"Sulla cartella del triage: «Priorità: rosso, arancione, giallo, verde»."},
+  list:[{type:"bulbs",title:"Le luci del triage",desc:"Il pannello del triage è spento: rimetti le luci nell'ordine delle priorità.",colors:["rosso","arancione","giallo","verde","blu"],answer:["rosso","arancione","giallo","verde"],
+   prop:{type:"garland",side:"L",a0:3.4,a1:6.4,z:4.4,n:4},hint:"La cartella del triage elenca le priorità.",done:"Triage acceso: il pronto soccorso è operativo!"}]},
+ [B+2]:{clues:{clipboard:"Protocollo del laboratorio: «Centrifugare i campioni a 3000 giri»."},
+  list:[{type:"dial",title:"La centrifuga",desc:"Imposta la velocità della centrifuga grande.",options:["1000","2000","3000","4000"],answer:"3000",box:"centri",hint:"Il protocollo è sul bancone.",done:"Vrrrr… i campioni sono pronti."}]},
+ [B+3]:{clues:{winebottle:"Sull'etichetta sbiadita: «Annata 1 8 8 7 – la stessa della credenza»."},
+  list:[{type:"code",title:"La vecchia credenza",desc:"La credenza è chiusa da un lucchetto a 4 cifre.",n:4,answer:"1887",lock:"credenza",hint:"Le bottiglie hanno sempre un'annata.",done:"Cigolando, la credenza si apre."}]},
+ [B+4]:{clues:{musicsheet:"Sullo spartito, l'ultima danza: La – Sol – Fa – Mi."},
+  list:[{type:"melody",title:"L'ultimo ballo",desc:"Suona la melodia dell'ultimo ballo sul violino.",keys:["Do","Re","Mi","Fa","Sol","La"],answer:["La","Sol","Fa","Mi"],item:"violin",needPlace:"Prima sistema il violino.",hint:"Lo spartito è sul pianoforte.",done:"Per un attimo, coppie di fantasmi danzano nella sala…"}]},
+ [B+5]:{clues:{oldbook:"Nel quaderno del dottore: «L'interruttore si accende con una grande Z»."},
+  list:[{type:"tiles",title:"L'interruttore",desc:"Il pannello ha 9 leve: forma il segno giusto per dare corrente.",answer:[1,1,1,0,1,0,1,1,1],prop:{type:"tiles",side:"R",a0:.8,z0:2.4,size:1.05},hint:"Il dottore annotava tutto nel suo quaderno.",done:"ZZZAP! Il laboratorio si accende di scintille."}]},
+ [B+6]:{clues:{tablet:"Diagnostica del reattore: «Potenza consigliata: 75%»."},
+  list:[{type:"dial",title:"Il reattore",desc:"Imposta la potenza del reattore.",options:["25%","50%","75%","100%"],answer:"75%",box:"reactor",hint:"Il tablet diagnostico lo sa.",done:"Il reattore ronza tranquillo."}]},
+ [B+7]:{clues:{scanner:"Sul display dello scanner: «Codice farmaci: 3 1 4»."},
+  list:[{type:"code",title:"L'armadietto dei farmaci",desc:"L'armadietto chiede un codice a 3 cifre.",n:3,answer:"314",lock:"medlock",hint:"Lo scanner medico mostra un codice.",done:"Pssst… l'armadietto si apre."}]},
+ [B+8]:{clues:{logbook:"Nel diario delle stelle: «Stanotte cerca la costellazione a scaletta, in diagonale»."},
+  list:[{type:"tiles",title:"La costellazione",desc:"Sul pannello di 9 stelle, accendi la costellazione giusta.",answer:[1,0,0,1,1,0,0,1,1],prop:{type:"tiles",side:"R",a0:7.2,z0:2.4,size:1.05},hint:"Il diario delle stelle descrive la forma.",done:"Il telescopio si punta da solo: che spettacolo!"}]}
+});
+Object.assign(COMBOS,{
+ [B]:[{a:"amb_body",an:"Ambulanza senza ruote",b:"amb_wheels",bn:"Ruote dell'ambulanza",r:"ambulance"}],
+ [B+1]:[{a:"crutch_l",an:"Stampella sinistra",b:"crutch_r",bn:"Stampella destra",r:"crutches"}],
+ [B+2]:[{a:"micro_base",an:"Base del microscopio",b:"micro_tube",bn:"Oculare",r:"microscope"}],
+ [B+3]:[{a:"candelabra_base",an:"Candelabro vuoto",b:"candles",bn:"Candele",bin:"rack",r:"candelabra"}],
+ [B+4]:[{a:"violin_body",an:"Violino senza archetto",b:"violin_bow",bn:"Archetto",r:"violin"}],
+ [B+5]:[{a:"tesla_base",an:"Bobina spenta",b:"tesla_sphere",bn:"Sfera della bobina",r:"teslacoil"}],
+ [B+6]:[{a:"drone_body",an:"Drone senza eliche",b:"drone_props",bn:"Eliche",r:"drone"}],
+ [B+7]:[{a:"scanner_body",an:"Scanner senza lente",b:"scanner_lens",bn:"Lente dello scanner",r:"scanner"}],
+ [B+8]:[{a:"tele_tripod",an:"Treppiede",b:"tele_tube",bn:"Tubo del telescopio",r:"telescope"}]
+});
+
+// ---------- Mondo: Castello ----------
+HOUSES.push({year:"🏰",name:"Il castello di Rosaspina",story:"Il re torna domani dal viaggio e il castello è sottosopra. Corone, pozioni, selle: ogni cosa al suo posto, come nelle fiabe."});
+const CA=HOUSES.length-1;B=ROOMS.length;
+ROOMS.push(
+{w:"castello",h:CA,name:"La sala del trono",N:9,wall:["#efe3ff","#e3d3fb"],wp:"stripe",floor:"#c9b8a2",fp:"checker",cur:"#9d0208",
+ cartons:[[3.4,3.8],[5.6,5.6],[2.6,7.0]],
+ items:[I("crown","Corona del re",["throne","sidetable"]),I("scepter","Scettro",["throne","sidetable"]),I("goblet","Calice d'oro",["table","sidetable"]),I("goblet","Calice d'oro",["table","sidetable"]),
+  I("shield","Scudo",["wall"]),I("banner","Stendardo",["wall"]),I("tapestry","Arazzo",["wall"]),I("candelabra","Candelabro",["table","sidetable"]),I("treasure","Scrigno",["chest","table"]),
+  I("cushion","Cuscino reale",["throne","bench"]),I("key","Chiave del tesoro",["sidetable","chest"])],
+ build(r){throne(r,3.6);r.rug(3.4,1.4,1.8,6.0,"#9d0208");
+  const tb=r.table(0,2.6,1.2,2.6,1.8,"#7f4f24");col(r,tb,"table",.5,[.2,.5,.8]);
+  const s1=r.box(1.6,.2,0,.9,.9,1.2,"#7f4f24");r.slot(s1,"sidetable",.5,.5);const s2=r.box(6.0,.2,0,.9,.9,1.2,"#7f4f24");r.slot(s2,"sidetable",.5,.5);
+  const ch=r.box(0,6.4,0,1.0,1.6,1.0,"#9c6644");r.deco(ch,{t:"fx",v0:0,v1:1,w0:.7,w1:.8,c:"#ffd60a"});r.slot(ch,"chest",.5,.5);
+  const bn=r.box(7.6,2.4,0,.9,2.4,.8,"#9d0208");col(r,bn,"bench",.5,[.3,.7]);r.window("R",6.6,8.4,2.2,4.0)}},
+{w:"castello",h:CA,name:"La cucina del castello",N:9,wall:["#f3e6d0","#ead9bd"],wp:"tile",floor:"#b9a68a",fp:"checker",cur:"#6a994e",
+ cartons:[[3.4,3.6],[5.6,5.4],[2.6,7.0]],
+ items:[I("roastchicken","Pollo arrosto",["table","hearth"]),I("cheesewheel","Forma di formaggio",["table","shelf"]),I("breadloaf","Pagnotta",["table","shelf"]),I("breadloaf","Pagnotta",["table","shelf"]),
+  I("applebasket","Cesto di mele",["table","shelf"]),I("jug","Brocca",["table"]),I("goblet","Calice",["table","shelf"]),I("woodspoon","Mestolo di legno",["table","shelf","hearth"]),I("cauldron","Calderone",["hearth"]),
+  I("candle","Candela",["table","sill"]),I("rope","Treccia d'aglio",["shelf","table"])],
+ build(r){hearth(r,2.6);const tb=r.table(1.6,3.6,3.0,1.4,1.7,"#9c6644");row(r,tb,"table",[.2,.5,.8],.5);r.box(1.6,3.0,0,3.0,.45,.85,"#7f4f24");r.box(1.6,5.15,0,3.0,.45,.85,"#7f4f24");
+  const sh=r.shelfL(1.0,2.8,2.6,"#7f4f24");col(r,sh,"shelf",.5,[.2,.5,.8]);barrel(r,6.6,.2);barrel(r,7.6,.2);r.window("L",4.4,6.4,2.2,3.8);r.sill("L",4.4)}},
+{w:"castello",h:CA,name:"La torre del mago",N:9,wall:["#4a3d7a","#3f346b"],wp:"dots",floor:"#6b5a8a",fp:"wood",cur:"#5a189a",
+ cartons:[[3.4,3.6],[5.4,5.6],[3.0,7.0]],
+ items:[I("wand","Bacchetta magica",["desk","bookcase"]),I("oldbook","Libro di magie",["bookcase","desk"]),I("oldbook","Grimorio",["bookcase","desk"]),I("crystal","Sfera di cristallo",["sidetable","desk"]),
+  I("owl","Gufo",["bookcase","desk"]),I("hourglass","Clessidra",["desk","bookcase"]),I("potion","Pozione viola",["bookcase"]),I("potion","Pozione azzurra",["bookcase"]),I("planetglobe","Globo celeste",["desk"]),
+  I("tarot","Carte magiche",["desk","sidetable"]),I("starmap","Mappa delle stelle",["wall"]),I("candle","Candela",["desk","sidetable"])],
+ build(r){const b1=r.bookcaseR(.4,2.4,[.3,1.5,2.7],"#5e3b23",3.9);b1.forEach(p=>[.28,.72].forEach(u=>r.slot(p,"bookcase",u,.5)));
+  const b2=r.bookcaseL(1.6,2.4,[.3,1.5,2.7],"#5e3b23",3.9);b2.forEach(p=>[.28,.72].forEach(v=>r.slot(p,"bookcase",.5,v)));
+  const dk=r.table(4.6,.2,2.4,1.2,1.8,"#7f4f24");row(r,dk,"desk",[.2,.5,.8],.5);r.chair(5.4,1.6,"#5a189a");
+  const sd=r.box(5.0,5.2,0,.9,.9,1.1,"#5e3b23");r.slot(sd,"sidetable",.5,.5);const ar=r.armchair(6.2,4.0,"#7b2cbf");r.window("R",7.2,8.6,2.2,3.8);r.rug(2.4,3.0,3,3,"#5a189a",true)}},
+{w:"castello",h:CA,name:"La camera della principessa",N:9,wall:["#ffe5ef","#ffd6e8"],wp:"dots",floor:"#f2d0a9",fp:"wood",cur:"#ff8fab",
+ cartons:[[3.8,3.6],[5.6,5.6],[3.4,7.2]],
+ items:[I("tiara","Tiara",["dresser","nightstand"]),I("jewelry","Portagioie",["dresser"]),I("mirror","Specchio",["wall"]),I("dress","Abito da ballo",["wardin"]),I("dress","Abito della festa",["wardin"]),
+  I("vase","Fiori",["dresser","nightstand","sill"]),I("unicorn","Unicorno di peluche",["bed","armchair"]),I("perfume","Profumo",["dresser"]),I("hairbrush","Spazzola",["dresser","nightstand"]),
+  I("books","Libro delle fiabe",["nightstand","armchair"]),I("portrait","Ritratto della regina",["wall"]),I("slippers","Pantofoline",["floor"]),I("harp","Arpa",["floor"])],
+ build(r){canopy(r,0,4.8,3.4,1.9,"#ffafcc");const ns=r.box(0,3.6,0,.95,.95,1.1,"#ffffff");r.slot(ns,"nightstand",.5,.5);
+  const dr=r.box(3.4,.15,0,2.2,.9,1.3,"#ffffff");[.25,.75].forEach(u=>r.slot(dr,"dresser",u,.5));r.drawer(dr,"y",.45,.85,{n:2,cap:36});
+  r.cabinetR({x:.6,w:2.2,d:1.0,h:3.4,c:"#ffffff",inner:"#ffe5ef",shelves:[1.4,2.4],doors:[{hinge:"L",len:1.1},{hinge:"R",len:1.1}],kind:"wardin",cap:46,n:2,label:"l'armadio"});
+  const ar=r.armchair(6.4,3.0,"#ffc8dd");r.slot(ar,"armchair",.5,.5);r.window("R",6.0,8.0,2.2,3.9);r.sill("R",6.0);r.rug(3.4,3.2,2.8,2.8,"#ffc8dd",true)}},
+{w:"castello",h:CA,name:"Le scuderie",N:9,wall:["#e9d8b4","#dfcca3"],wp:"plain",floor:"#c2a36b",fp:"wood",cur:null,
+ cartons:[[3.6,3.4],[5.6,5.6],[3.2,7.0]],
+ items:[I("saddle","Sella",["tack","bench"]),I("horseshoe","Ferro di cavallo",["bench","tack"]),I("horsebrush","Striglia",["bench","tack","hay"]),I("carrots","Carote",["hay","bench"]),
+  I("applebasket","Mele per i cavalli",["hay","bench"]),I("bucket","Secchio",["floor","trough"]),I("rope","Corda",["tack","bench","hay"]),I("lantern","Lanterna",["bench","floor"]),I("wateringcan","Annaffiatoio",["floor","trough"]),
+  I("hat","Cappello da cavaliere",["tack","bench"])],
+ build(r){hay(r,0,2.6);hay(r,0,3.7);hay(r,1.4,0);
+  const tk=r.cabinetR({x:3.6,w:1.8,d:.9,h:2.8,c:"#9c6644",inner:"#6b4226",shelves:[1.3],doors:[{hinge:"L",len:.9},{hinge:"R",len:.9}],kind:"tack",cap:44,n:2,label:"l'armadio delle selle"});r.tag("tack",tk.op);
+  const tr=r.box(6.2,.3,0,2.2,.8,.7,"#7f4f24");r.deco(tr,{t:"rect",u0:.05,v0:.15,u1:.95,v1:.85,c:"#4cc9f0"});r.slot(tr,"trough",.5,.5);
+  const bn=r.box(0,5.6,0,.9,2.4,.8,"#9c6644");col(r,bn,"bench",.5,[.3,.7]);r.box(4.0,3.6,0,.2,2.2,1.6,"#7f4f24");r.window("R",6.4,8.2,2.4,3.8)}}
+);
+Object.assign(PUZZLES,{
+ [B]:{clues:{banner:"Sullo stendardo è ricamata una corona: due punte in alto e la base tutta piena."},
+  list:[{type:"tiles",title:"Il sigillo del re",desc:"Sopra il trono c'è un sigillo di 9 piastrelle: ricomponi lo stemma.",answer:[1,0,1,1,1,1,1,1,1],prop:{type:"tiles",side:"L",a0:4.6,z0:2.6,size:1.05},hint:"Guarda lo stendardo.",done:"Il sigillo brilla: il castello saluta il suo re!"}]},
+ [B+1]:{clues:{roastchicken:"Il cuoco ha lasciato un biglietto: «Arrosto a fuoco medio, mai alto!»."},
+  list:[{type:"dial",title:"Il camino",desc:"Regola il fuoco del grande camino.",options:["spento","basso","medio","alto"],answer:"medio",box:"hearth",hint:"Il cuoco ha lasciato un biglietto sul pollo.",done:"Il profumo dell'arrosto riempie il castello."}]},
+ [B+2]:{clues:{tarot:"Sulle carte magiche, in fila: blu, viola, blu, verde."},
+  list:[{type:"bulbs",title:"I cristalli del mago",desc:"Sopra le librerie ci sono quattro cristalli spenti: accendili nell'ordine giusto.",colors:["blu","viola","verde","rosso","giallo"],answer:["blu","viola","blu","verde"],
+   prop:{type:"garland",side:"L",a0:4.4,a1:7.4,z:4.4,n:4},hint:"Le carte magiche indicano l'ordine.",done:"La torre si riempie di luce magica!"}]},
+ [B+3]:{clues:{books:"Nell'ultima pagina del libro delle fiabe: la canzone della principessa, Do – Re – Mi – Do."},
+  list:[{type:"melody",title:"L'arpa",desc:"Suona la canzone della principessa sull'arpa.",keys:["Do","Re","Mi","Fa","Sol","La"],answer:["Do","Re","Mi","Do"],item:"harp",needPlace:"Prima sistema l'arpa.",hint:"Il libro delle fiabe finisce con una canzone.",done:"La principessa si sveglia e sorride."}]},
+ [B+4]:{clues:{horseshoe:"Sul ferro di cavallo è inciso: «Fulmine – box 2 7 4»."},
+  list:[{type:"code",title:"L'armadio delle selle",desc:"L'armadio delle selle ha un lucchetto a 3 cifre.",n:3,answer:"274",lock:"tack",hint:"I ferri di cavallo portano il numero del box.",done:"Click! L'armadio si apre, profuma di cuoio."}]}
+});
+Object.assign(COMBOS,{
+ [B]:[{a:"crown_ring",an:"Corona senza gemma",b:"crown_gem",bn:"Rubino",r:"crown"}],
+ [B+1]:[{a:"basket_empty",an:"Cesto vuoto",b:"apples",bn:"Mele",r:"applebasket"}],
+ [B+2]:[{a:"wand_stick",an:"Bacchetta spenta",b:"wand_star",bn:"Stellina magica",r:"wand"}],
+ [B+3]:[{a:"harp_frame",an:"Arpa senza corde",b:"harp_strings",bn:"Corde d'oro",bin:"drawer",r:"harp"}],
+ [B+4]:[{a:"saddle_seat",an:"Sella senza staffe",b:"stirrups",bn:"Staffe",bin:"tack",r:"saddle"}]
+});
+
+// ---------- Mondo: Pasticceria ----------
+HOUSES.push({year:"🧁",name:"La pasticceria Zucchero",story:"Domani si inaugura la pasticceria più dolce della città. Torte in vetrina, forno caldo, tè pronto: manca solo sistemare tutto!"});
+const PA=HOUSES.length-1;B=ROOMS.length;
+ROOMS.push(
+{w:"pasticceria",h:PA,name:"La vetrina",N:9,wall:["#fff1f5","#ffe4ec"],wp:"stripe",floor:"#f7d6e0",fp:"checker",cur:"#ff8fab",
+ cartons:[[3.4,3.8],[5.6,5.8],[2.6,7.0]],
+ items:[I("cake","Torta alle fragole",["vetrina","table"]),I("cupcake","Cupcake",["vetrina","shelf"]),I("cupcake","Cupcake",["vetrina","shelf"]),I("macarons","Macaron",["vetrina","shelf"]),
+  I("donut","Ciambella",["vetrina","shelf"]),I("donut","Ciambella",["vetrina","shelf"]),I("cookiejar","Barattolo dei biscotti",["cassa","shelf"]),I("register","Registratore di cassa",["cassa"]),
+  I("menuboard","Lavagna del menu",["wall"]),I("cakebox","Scatola per torte",["shelf","cassa"]),I("ribbons","Nastri",["cassa","shelf"]),I("vase","Fiori",["table","cassa","sill"])],
+ build(r){const vt=r.box(1.4,2.6,0,3.0,1.0,1.4,"#ffc8dd");r.deco(vt,{t:"fy",u0:.04,u1:.96,w0:.15,w1:.85,c:"#fff0f6"});const vtop=r.box(1.3,2.5,1.4,3.2,1.2,.1,"#ffffff");[.15,.4,.65,.9].forEach(u=>r.slot(vtop,"vetrina",u,.5));
+  const cs=r.box(5.8,.2,0,2.0,1.0,1.5,"#ff8fab");r.deco(cs,{t:"fy",u0:.05,u1:.95,w0:.15,w1:.85,c:"#ffafcc"});[.3,.75].forEach(u=>r.slot(cs,"cassa",u,.5));
+  const sh=r.shelfR(.6,3.2,3.4,"#ffffff");row(r,sh,"shelf",[.15,.4,.65,.9],.5);const tb=r.table(5.6,5.0,1.4,1.4,1.6,"#ffffff");r.slot(tb,"table",.5,.5);r.chair(5.8,6.6,"#ff8fab");
+  r.window("L",4.2,7.4,1.8,4.0);r.sill("L",4.2)}},
+{w:"pasticceria",h:PA,name:"Il laboratorio dei dolci",N:9,wall:["#fdf0e6","#f8e3d2"],wp:"tile",floor:"#e9dccf",fp:"tile",cur:"#f4a261",
+ cartons:[[3.4,3.6],[5.6,5.6],[2.6,7.0]],
+ items:[I("mixer","Impastatrice",["counter","island"]),I("mixbowl","Ciotola",["counter","island"]),I("whisk","Frusta",["counter","island","drawer"]),I("rollingpin","Mattarello",["counter","island"]),
+  I("flourbag","Sacco di farina",["floor","shelf"]),I("sugarjar","Zucchero",["shelf","counter"]),I("eggs","Uova",["fridgein","counter"]),I("butter","Burro",["fridgein"]),I("milk","Latte",["fridgein"]),
+  I("molds","Stampini",["shelf","island"]),I("sprinkles","Codette colorate",["shelf"])],
+ build(r){oven(r,.3,"oven");const c=r.counterR(2.0,2.4,1.9,"#f4a261","#fff8f0");row(r,c,"counter",[.2,.5,.8],.5);
+  r.cabinetR({x:4.6,w:1.4,d:1.2,h:4.0,c:"#ffffff",inner:"#dff0f8",shelves:[1.4,2.6],doors:[{hinge:"L"}],kind:"fridgein",cap:38,n:2,label:"il frigorifero",fridge:true});
+  const is=r.box(2.4,3.6,0,2.8,1.4,1.8,"#f4a261");const it=r.box(2.3,3.5,1.8,3.0,1.6,.12,"#fff8f0");row(r,it,"island",[.2,.5,.8],.5);r.drawer(is,"y",.4,.85,{n:2,cap:30});
+  const sh=r.shelfL(2.0,3.2,3.0,"#ffffff");col(r,sh,"shelf",.5,[.15,.5,.85]);r.window("R",6.4,8.2,2.2,3.8)}},
+{w:"pasticceria",h:PA,name:"La sala da tè",N:9,wall:["#eaf4f4","#dcecee"],wp:"dots",floor:"#e6c9a8",fp:"wood",cur:"#a2d2ff",
+ cartons:[[3.6,3.8],[5.8,6.2],[2.4,7.0]],
+ items:[I("teapot","Teiera",["table","sideboard"]),I("teacup","Tazza da tè",["table","sideboard"]),I("teacup","Tazza da tè",["table","sideboard"]),I("teacup","Tazza da tè",["table","sideboard"]),
+  I("tieredstand","Alzatina di dolcetti",["table","sideboard"]),I("sugarjar","Zuccheriera",["table","sideboard"]),I("napkins","Tovaglioli",["sideboard","table"]),I("vase","Fiori",["table","sill"]),
+  I("clock","Orologio",["wall"]),I("menuboard","Lavagna del tè",["wall"]),I("cupcake","Cupcake",["table","sideboard"])],
+ build(r){const t1=r.table(2.0,2.2,1.6,1.6,1.6,"#ffffff");r.slot(t1,"table",.3,.5);r.slot(t1,"table",.7,.5);r.chair(2.4,4.0,"#a2d2ff");
+  const t2=r.table(5.2,3.6,1.6,1.6,1.6,"#ffffff");r.slot(t2,"table",.3,.5);r.slot(t2,"table",.7,.5);r.chair(5.6,5.4,"#ffafcc");
+  const sb=r.box(4.2,.15,0,2.6,.9,1.4,"#a2d2ff");r.deco(sb,{t:"fy",u0:.04,u1:.48,w0:.15,w1:.85,c:"#cde7ff"});r.deco(sb,{t:"fy",u0:.52,u1:.96,w0:.15,w1:.85,c:"#cde7ff"});[.2,.5,.8].forEach(u=>r.slot(sb,"sideboard",u,.5));
+  r.window("L",3.4,6.4,2.0,4.0);r.sill("L",3.4);r.rug(1.6,1.8,6,5,"#ffe5ec")}},
+{w:"pasticceria",h:PA,name:"Il magazzino",N:9,wall:["#f3ead8","#ebdfc8"],wp:"plain",floor:"#cdbfa8",fp:"tile",cur:null,
+ cartons:[[3.6,3.6],[5.6,5.6],[3.0,7.0]],
+ items:[I("flourbag","Sacco di farina",["floor","scaffale"]),I("flourbag","Sacco di farina",["floor","scaffale"]),I("sugarjar","Zucchero",["scaffale"]),I("cakebox","Scatole per torte",["scaffale"]),
+  I("cakebox","Scatole per torte",["scaffale"]),I("chocobar","Tavolette di cioccolato",["scaffale"]),I("sprinkles","Codette",["scaffale","table"]),I("ribbons","Nastri",["scaffale","table"]),
+  I("cocoasack","Sacco di cacao",["floor"]),I("molds","Stampini",["scaffale"]),I("clipboard","Inventario",["table"])],
+ build(r){const a=r.bookcaseR(.4,3.0,[.3,1.5,2.7],"#c9a77c",3.9);a.forEach(p=>[.2,.5,.8].forEach(u=>r.slot(p,"scaffale",u,.5)));
+  const b=r.bookcaseL(2.0,3.0,[.3,1.5,2.7],"#c9a77c",3.9);b.forEach(p=>[.2,.5,.8].forEach(v=>r.slot(p,"scaffale",.5,v)));
+  r.box(5.8,1.2,0,1.6,1.6,.3,"#bc8a5f");const tb=r.table(5.4,4.2,1.6,1.2,1.6,"#c9a77c");r.slot(tb,"table",.5,.5)}},
+{w:"pasticceria",h:PA,name:"La stanza del cioccolato",N:9,wall:["#d9a77c","#c99367"],wp:"stripe",floor:"#9c6a46",fp:"wood",cur:"#7f5539",
+ cartons:[[3.6,3.6],[5.6,5.8],[2.8,7.0]],
+ items:[I("chocofountain","Fontana di cioccolato",["counter","table"]),I("pralines","Cioccolatini",["counter","rack","table"]),I("pralines","Cioccolatini",["counter","rack","table"]),
+  I("chocobar","Tavoletta",["rack"]),I("chocobar","Tavoletta",["rack"]),I("molds","Stampini",["rack","counter"]),I("cocoasack","Sacco di cacao",["floor"]),I("cakebox","Scatola regalo",["rack"]),
+  I("whisk","Frusta",["counter"]),I("cake","Torta al cioccolato",["table","counter"]),I("menuboard","Lavagna",["wall"])],
+ build(r){const c=r.counterR(.4,3.2,1.9,"#7f5539","#f1e3d3");row(r,c,"counter",[.15,.4,.65,.9],.5);
+  const rk=r.bookcaseL(1.6,2.6,[.3,1.5,2.7],"#6f4518",3.9);rk.forEach(p=>[.28,.72].forEach(v=>r.slot(p,"rack",.5,v)));
+  const tb=r.table(4.6,3.8,1.8,1.4,1.7,"#f1e3d3");r.slot(tb,"table",.3,.5);r.slot(tb,"table",.7,.5);r.window("R",5.2,7.4,2.2,3.8)}}
+);
+Object.assign(PUZZLES,{
+ [B]:{clues:{cakebox:"Sullo scontrino attaccato alla scatola: «Totale: 12,50»."},
+  list:[{type:"code",title:"Il registratore di cassa",desc:"La cassa chiede un codice di 4 cifre per aprirsi.",n:4,answer:"1250",item:"register",needPlace:"Prima metti il registratore sul bancone.",hint:"Lo scontrino è attaccato a una scatola.",done:"DRIIIN! La cassa si apre: pronti a vendere!"}]},
+ [B+1]:{clues:{mixbowl:"Nella ciotola c'è la ricetta: «Torta margherita, forno a 180°»."},
+  list:[{type:"dial",title:"Il forno",desc:"Imposta la temperatura giusta del forno.",options:["150°","180°","200°","220°"],answer:"180°",box:"oven",hint:"La ricetta è nella ciotola.",done:"Profumo di torta appena sfornata!"}]},
+ [B+2]:{clues:{napkins:"Ricamato sui tovaglioli: «Il tè si serve alle 5 in punto»."},
+  list:[{type:"clock",title:"L'ora del tè",desc:"Regola l'orologio sull'ora del tè.",answer:[5,0],item:"clock",needPlace:"Prima appendi l'orologio al muro.",hint:"I tovaglioli ricamati lo sanno.",done:"Din don: è l'ora del tè!"}]},
+ [B+3]:{clues:{sprinkles:"Sul barattolo delle codette: «Insegna: giallo, rosso, giallo, viola»."},
+  list:[{type:"bulbs",title:"L'insegna",desc:"Le lucine dell'insegna sono fulminate: rimettile nell'ordine giusto.",colors:["giallo","rosso","viola","verde","blu"],answer:["giallo","rosso","giallo","viola"],
+   prop:{type:"garland",side:"R",a0:3.8,a1:6.8,z:4.4,n:4},hint:"Il barattolo delle codette ha un'etichetta.",done:"L'insegna si accende: Pasticceria Zucchero!"}]},
+ [B+4]:{clues:{pralines:"Sul coperchio dei cioccolatini, disegnato col cacao, un grande cuore."},
+  list:[{type:"tiles",title:"Lo stampo segreto",desc:"Sul muro c'è uno stampo di 9 piastrelle: forma il disegno giusto.",answer:[1,0,1,1,1,1,0,1,0],prop:{type:"tiles",side:"R",a0:.6,z0:2.6,size:1.05},hint:"La scatola dei cioccolatini ha un disegno.",done:"Lo stampo si riempie di cioccolato: a forma di cuore!"}]}
+});
+Object.assign(COMBOS,{
+ [B]:[{a:"cake_base",an:"Base della torta",b:"cake_top",bn:"Piano alto con le fragole",r:"cake"}],
+ [B+1]:[{a:"mixer_base",an:"Impastatrice senza ciotola",b:"mixer_bowl",bn:"Ciotola dell'impastatrice",r:"mixer"}],
+ [B+2]:[{a:"teapot_body",an:"Teiera senza coperchio",b:"teapot_lid",bn:"Coperchio",r:"teapot"}],
+ [B+4]:[{a:"choco_base",an:"Vasca del cioccolato",b:"choco_tower",bn:"Torretta della fontana",r:"chocofountain"}]
+});
+THEMES.push(
+ {w:"ospedale",near:["bunnydoc","teddy","ambulance","blocks"],t:"Giochi tutti nello stesso angolo"},
+ {w:"ospedale",near:["microscope","pipette","petri","testtubes"],t:"Strumenti del laboratorio sullo stesso banco"},
+ {w:"ospedale",near:["defib","medkit","bpcuff"],t:"Emergenza tutta sul carrello rosso"},
+ {w:"horror",near:["winebottle"],t:"Bottiglie tutte insieme"},
+ {w:"horror",near:["flask","brainjar","weirdjar"],t:"Gli esperimenti sullo stesso scaffale"},
+ {w:"horror",near:["mask","fan","musicsheet"],t:"Il necessario per il ballo insieme"},
+ {w:"spazio",near:["wrench","toolbox","cablecoil"],t:"Attrezzi sullo stesso banco"},
+ {w:"spazio",near:["coolant","powercell"],t:"Ricambi del reattore insieme"},
+ {w:"spazio",near:["medpouch","nutripills","bandaid"],t:"Farmaci tutti nell'armadietto"},
+ {w:"spazio",near:["planetglobe","meteorite","astrofig","rocketmodel"],t:"Collezione spaziale sullo stesso scaffale"},
+ {w:"castello",near:["crown","scepter"],t:"Corona e scettro accanto al trono"},
+ {w:"castello",near:["goblet","candelabra"],t:"La tavola apparecchiata"},
+ {w:"castello",near:["breadloaf","cheesewheel","applebasket"],t:"La dispensa sullo stesso mobile"},
+ {w:"castello",near:["oldbook","wand","crystal","hourglass"],t:"Gli strumenti magici sullo stesso mobile"},
+ {w:"castello",near:["potion"],t:"Le pozioni tutte insieme"},
+ {w:"castello",near:["tiara","jewelry","perfume","hairbrush"],t:"La toeletta della principessa"},
+ {w:"castello",near:["saddle","horseshoe","horsebrush","rope"],t:"Finimenti tutti insieme"},
+ {w:"castello",by:["vase","candle"],k:["window"],d:1.8,t:"Fiori e candele alla finestra"},
+ {w:"pasticceria",near:["cupcake","donut","macarons"],t:"I dolcetti tutti in vetrina"},
+ {w:"pasticceria",near:["register","ribbons","cakebox"],t:"La cassa in ordine"},
+ {w:"pasticceria",near:["mixer","mixbowl","whisk"],t:"Tutto per impastare sullo stesso piano"},
+ {w:"pasticceria",near:["teapot","teacup","sugarjar"],t:"Il servizio da tè sullo stesso tavolo"},
+ {w:"pasticceria",near:["chocobar","pralines"],t:"Cioccolato tutto insieme"},
+ {w:"pasticceria",near:["flourbag","cocoasack"],t:"I sacchi tutti nello stesso angolo"},
+ {w:"pasticceria",by:["vase"],k:["window"],d:1.8,t:"Fiori alla finestra"}
+);
+WORLDCAT.castello={chest:{n:"Cassapanca",b:(r,x,y)=>{const t=r.box(x,y,0,1.4,.9,1.0,"#9c6644");r.deco(t,{t:"fy",u0:0,u1:1,w0:.7,w1:.8,c:"#ffd60a"});r.slot(t,"chest",.5,.5)}},
+  bench:{n:"Panca",b:(r,x,y)=>{const t=r.box(x,y,0,2.0,.8,.8,"#7f4f24");r.slot(t,"bench",.5,.5)}}};
+WORLDCAT.pasticceria={cakestand:{n:"Tavolino dei dolci",b:(r,x,y)=>{const t=r.table(x,y,1.2,1.2,1.5,"#ffffff");r.slot(t,"table",.5,.5)}},
+  shelf2:{n:"Scaffale rosa",b:(r,x,y)=>{const t=r.box(x,y,0,1.8,.8,1.4,"#ffafcc");[.25,.75].forEach(u=>r.slot(t,"shelf",u,.5))}}};
+}
 function bboxOf(o){
   if(o.kind==="item"&&o.it.rect){const r=o.it.rect;return[r[0],r[1],r[0]+r[2],r[1]+r[3]]}
   let a=1e9,b=1e9,c=-1e9,e=-1e9;
@@ -2635,7 +3091,13 @@ const WORLDS={
    end:"L'ultimo oggetto maledetto torna al suo posto.<br>Le candele si spengono da sole. Villa Corvi, finalmente, dorme."},
  spazio:{n:"Astronave",ico:"🚀",d:"La Stella Polare parte domani: sistema la nave in assenza di gravità.",bg:["#1b1f4b","#2b2a6b","#3d2f73"],glass:["#05051a","#1b1b4b"],stars:true,
    mus:{ch:[[50,57,61,64],[52,59,62,66],[47,54,57,62],[49,56,59,64]],sc:[74,76,78,81,83,86,88,90]},
-   end:"Motori accesi, tutto agganciato al suo posto.<br>La Stella Polare parte verso le stelle. Buon viaggio!"}
+   end:"Motori accesi, tutto agganciato al suo posto.<br>La Stella Polare parte verso le stelle. Buon viaggio!"},
+ castello:{n:"Castello",ico:"🏰",d:"Corone, pozioni e selle: il re torna domani!",bg:["#ffe5f1","#e9dcff","#d4e9ff"],
+   mus:{ch:[[50,57,62,65],[48,55,60,64],[46,53,58,62],[45,52,57,60]],sc:[62,64,65,67,69,72,74,76]},
+   end:"Il re entra nel castello e trova tutto perfetto.<br>Stanotte si festeggia, come nelle fiabe."},
+ pasticceria:{n:"Pasticceria",ico:"🧁",d:"Torte, cioccolato e tè: si inaugura domani!",bg:["#ffe3ee","#fff0d6","#e3f6ff"],
+   mus:{ch:[[53,60,64,69],[55,62,65,71],[52,59,64,67],[50,57,62,65]],sc:[72,74,76,77,79,81,84,86]},
+   end:"La Pasticceria Zucchero apre le porte.<br>Il profumo di torte arriva fino in fondo alla strada!"}
 };
 function worldOf(i){return(ROOMS[i]&&ROOMS[i].w)||"casa"}
 function worldRooms(w){return ROOMS.map((r,i)=>i).filter(i=>worldOf(i)===w)}
@@ -2656,9 +3118,11 @@ function drawWorldFX(){
   if(!R)return;const w=R.world;
   if(w==="horror"){
     ctx.setTransform(dpr,0,0,dpr,0,0);
-    const p=TORCH||{x:VW/2+SHIFT,y:VH*.55},fl=1+.04*Math.sin(now/90)+.03*Math.sin(now/37),r=Math.max(VW,VH)*(ARR?.9:.66)*fl*Math.pow(cam.z||1,.85);
-    const g=ctx.createRadialGradient(p.x,p.y,r*.2,p.x,p.y,r);g.addColorStop(0,"rgba(255,220,150,0.06)");g.addColorStop(.6,"rgba(20,10,35,.1)");g.addColorStop(1,`rgba(12,6,24,${ARR?.25:.4})`);
+    const p=TORCH||{x:VW/2+SHIFT,y:VH*.55},fl=1+.035*Math.sin(now/90)+.025*Math.sin(now/37),r=Math.min(VW,VH)*(ARR?1.1:.62)*fl*Math.pow(cam.z||1,.85),dk=ARR?.35:.66;
+    const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,r);g.addColorStop(0,"rgba(12,6,24,0)");g.addColorStop(.42,"rgba(12,6,24,.05)");g.addColorStop(.75,`rgba(12,6,24,${dk*.6})`);g.addColorStop(1,`rgba(12,6,24,${dk})`);
     ctx.fillStyle=g;ctx.fillRect(0,0,VW,VH);
+    if(!ARR){const w2=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,r*.55);w2.addColorStop(0,"rgba(255,196,110,.22)");w2.addColorStop(1,"rgba(255,196,110,0)");ctx.globalCompositeOperation="lighter";ctx.fillStyle=w2;ctx.fillRect(0,0,VW,VH);ctx.globalCompositeOperation="source-over";
+      ctx.beginPath();ctx.arc(p.x,p.y,r*.5,0,7);ctx.strokeStyle="rgba(255,214,150,.18)";ctx.lineWidth=2;ctx.stroke()}
   }
 }
 function worldItemLift(it,i){
@@ -2675,6 +3139,8 @@ function worldTick(){
 }
 // oggetti maledetti: nella villa, se li metti dove non vogliono, tornano indietro da soli
 function cursedReject(it,t){return R&&R.world==="horror"&&it.cursed&&t&&!allowed(it,t)}
+
+Object.assign(PETCOL,{castello:["#ffd166","#fff3d6"],pasticceria:["#ffafcc","#fff0f6"]});
 
 function draw(){
   if(!TONE){TONE=mkPattern("rgba(60,35,55,.22)",5,1.05);BGDOT=mkPattern("rgba(255,255,255,.18)",16,2.2)}
@@ -3006,7 +3472,7 @@ fit();
 const saved=parseInt(store("scatoloni3-cur")||"0",10)||0;
 loadRoom(0,false);
 document.getElementById("toast").style.opacity=0;
-overlay(`<div class="big">📦</div><h2>Scatoloni</h2><p>Apri gli scatoloni e sistema le cose come piace a te.<br>Quattro mondi: 🏠 Casa · 🏥 Ospedale · 👻 Villa horror · 🚀 Astronave</p><p class="how">Trascina gli oggetti dove vuoi · doppio tocco su un oggetto per girarlo · tocca frigo, armadi, cassetti e coperte per aprirli · due dita per ingrandire</p>`,
+overlay(`<div class="big">📦</div><h2>Scatoloni</h2><p>Apri gli scatoloni e sistema le cose come piace a te.<br>Sei mondi: 🏠 Casa · 🏥 Ospedale · 👻 Villa · 🚀 Astronave · 🏰 Castello · 🧁 Pasticceria</p><p class="how">Trascina gli oggetti dove vuoi · doppio tocco su un oggetto per girarlo · tocca frigo, armadi, cassetti e coperte per aprirli · due dita per ingrandire</p>`,
   [["Scegli un mondo","primary",()=>{MODE="story";store("scatoloni-mode",MODE);worldMenu()}]].concat(saved>0&&ROOMS[saved]?[[`Continua: ${ROOMS[saved].name}`,"",()=>{MODE="story";store("scatoloni-mode",MODE);loadRoom(saved)}]]:[])
    .concat([["🎨 Modalità creativa","",()=>{MODE="creative";store("scatoloni-mode",MODE);worldMenu()}]]));
 requestAnimationFrame(frame);
