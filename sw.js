@@ -1,5 +1,5 @@
 // Cambia la versione quando aggiorni il gioco, così l'iPhone scarica i file nuovi
-const CACHE = "scatoloni-v14";
+const CACHE = "scatoloni-v15";
 const FILES = ["./", "./index.html", "./manifest.webmanifest",
   "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
